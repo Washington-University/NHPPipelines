@@ -489,7 +489,6 @@ main()
 	${CARET7DIR}/wb_command -cifti-create-scalar-series ${ICAFolder}/melodic_FTmix ${ICAFolder}/melodic_FTmix.sdseries.nii -transpose -name-file ${ComponentList} -series HERTZ 0 ${FTmixStep}
 	rm ${ComponentList}
 
-<<<<<<< HEAD:ICAFIX/PostFix.sh
 	# 1/28/2019, MPH: Going to place the ReclassifyAs*.txt files into FIXFolder
 	# to avoid name collision if user runs FIX with a different highpass filter.
 	# But then symlink to them from ResultsFolder for compatibility with previous code and downstream scripts
@@ -497,16 +496,6 @@ main()
 	# we'll add the highpass filter to the file name.
 	if [ ! -e ${FIXFolder}/ReclassifyAsSignal.txt ] ; then
 		touch ${FIXFolder}/ReclassifyAsSignal.txt
-=======
-	log_Msg "Making dual screen scene"
-	cat ${TemplateSceneDualScreen} | sed s/SubjectID/${Subject}/g | sed s/fMRIName/${fMRIName}/g | sed s@StudyFolder@"../../../.."@g | sed s@HighPass@${HighPass}@g > ${ResultsFolder}/${Subject}_${fMRIName}_ICA_Classification_dualscreen.scene
-
-	log_Msg "Making single screen scene"
-	cat ${TemplateSceneSingleScreen} | sed s/SubjectID/${Subject}/g | sed s/fMRIName/${fMRIName}/g | sed s@StudyFolder@"../../../.."@g | sed s@HighPass@${HighPass}@g > ${ResultsFolder}/${Subject}_${fMRIName}_ICA_Classification_singlescreen.scene
-
-	if [ ! -e ${ResultsFolder}/ReclassifyAsSignal.txt ] ; then
-		touch ${ResultsFolder}/ReclassifyAsSignal.txt
->>>>>>> *Enable PostFix Pipeline to work with non hp2000 sICA+FIX runs:PostFix/PostFix.sh
 	fi
 
 	if [ ! -e ${FIXFolder}/ReclassifyAsNoise.txt ] ; then
