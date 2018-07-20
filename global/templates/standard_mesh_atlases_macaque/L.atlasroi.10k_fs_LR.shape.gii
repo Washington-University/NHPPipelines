@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GIFTI xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="http://brainvis.wustl.edu/caret6/xml_schemas/GIFTI_Caret.xsd"
+       Version="1"
+       NumberOfDataArrays="1">
+   <MetaData>
+      <MD>
+         <Name><![CDATA[AnatomicalStructurePrimary]]></Name>
+         <Value><![CDATA[CortexLeft]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[ParentProvenance]]></Name>
+         <Value><![CDATA[L.atlasroi.10k_fs_LR.shape.gii:
+/home/brainmappers/workbench/fetchdir/wb_command.12052 -metric-resample L.atlasroi.164k_fs_LR.shape.gii /media/myelin/brainmappers/MyelinMapping_Project/Macaques/MacaqueYerkes19_v1.1/MNINonLinear/MacaqueYerkes19_v1.1.L.sphere.164k_fs_LR.surf.gii /media/myelin/brainmappers/MyelinMapping_Project/Macaques/MacaqueYerkes19_v1.1/MNINonLinear/fsaverage_LR10k/MacaqueYerkes19_v1.1.L.sphere.10k_fs_LR.surf.gii ADAP_BARY_AREA L.atlasroi.10k_fs_LR.shape.gii -area-surfs /media/myelin/brainmappers/MyelinMapping_Project/Macaques/MacaqueYerkes19_v1.1/MNINonLinear/MacaqueYerkes19_v1.1.L.midthickness.164k_fs_LR.surf.gii /media/myelin/brainmappers/MyelinMapping_Project/Macaques/MacaqueYerkes19_v1.1/MNINonLinear/fsaverage_LR10k/MacaqueYerkes19_v1.1.L.midthickness.10k_fs_LR.surf.gii
+
+]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[ProgramProvenance]]></Name>
+         <Value><![CDATA[Connectome Workbench
+Type: Command Line Application
+Version: 1.2.3
+Qt Compiled Version: 5.7.0
+Qt Runtime Version: 5.7.0
+Commit: b83f9b8bca3d27a127f349a4da1f0bf2b6ece80a
+Commit Date: 2017-09-18 15:50:21 -0500
+Compiled with OpenMP: YES
+Compiler: g++ (/home/caret/gcc/install/gcc-4.8.5/bin)
+Compiler Version: 4.8.5
+Compiled Debug: NO
+Operating System: Linux
+]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[Provenance]]></Name>
+         <Value><![CDATA[/home/brainmappers/workbench/fetchdir/wb_command.19758 -metric-math 'x<1' L.atlasroi.10k_fs_LR.shape.gii -var x L.atlasroi.10k_fs_LR.shape.gii]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[WorkingDirectory]]></Name>
+         <Value><![CDATA[/media/myelin/chad/20170922_y19AtlasROIs]]></Value>
+      </MD>
+   </MetaData>
+   <LabelTable>
+      <Label Key="0" Red="1" Green="1" Blue="1" Alpha="0"><![CDATA[???]]></Label>
+   </LabelTable>
+<DataArray Intent="NIFTI_INTENT_NORMAL"
+           DataType="NIFTI_TYPE_FLOAT32"
+           ArrayIndexingOrder="RowMajorOrder"
+           Dimensionality="1"
+           Dim0="10242"
+           Encoding="GZipBase64Binary"
+           Endian="LittleEndian"
+           ExternalFileName=""
+           ExternalFileOffset="0">
+   <MetaData>
+      <MD>
+         <Name><![CDATA[Name]]></Name>
+         <Value><![CDATA[MacaqueYerkes19_v1.1.L.MedialWall_v3]]></Value>
+      </MD>
+   </MetaData>
+   <Data>eJzt3EtuAkEMBcC5Wa6Wo0fZRVEY5uNnN6Qs1QJoPzdoBnrFtn1+bA99195r3bW317QV3u/U/ImZXXM753XN6piTnpHMT2UnclfOq8qqyJnsv9p7pe9sT+r+SWY8eu2v538/9/Px5HlhlXPJCvub+iwmPvtXn9UxJ32tJvNT2Ync6sy9msqqyLmb8awSs6/MPNtzZv3RtUfWrVZ3720AAAAAAAAAAAAAAAAAAAAAAAAAgP/If0lSdQ2l85Nzume8SnYitzqzMq8qqzpnov9ub7rnzPqja4+sS9y/d6+R6T0829/Vmt47QFrld11VVtX5Zap/5bMLAAAAQKK65+3tQSmllKqo6d/ribPBxFnk3eZNzHqHGR3XAQAAAADU+gKHQlCE</Data>
+</DataArray>
+</GIFTI>

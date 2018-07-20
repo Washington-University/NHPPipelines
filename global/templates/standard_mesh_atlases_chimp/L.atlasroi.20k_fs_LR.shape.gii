@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GIFTI xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="http://brainvis.wustl.edu/caret6/xml_schemas/GIFTI_Caret.xsd"
+       Version="1"
+       NumberOfDataArrays="1">
+   <MetaData>
+      <MD>
+         <Name><![CDATA[AnatomicalStructurePrimary]]></Name>
+         <Value><![CDATA[CortexLeft]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[ParentProvenance]]></Name>
+         <Value><![CDATA[L.atlasroi.164k_fs_LR.shape.gii:
+/home/brainmappers/workbench/fetchdir/wb_command.14591 -metric-math 'x<1' ChimpYerkes29_v1.1.L.NOTmedialWall_201710.164k_fs_LR.func.gii -var x ChimpYerkes29_v1.1.L.MedialWall_201710.164k_fs_LR.func.gii
+
+/media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/fsaverage_LR20k/ChimpYerkes29_v1.1.L.sphere.20k_fs_LR.surf.gii:
+/home/brainmappers/workbench/fetchdir/wb_command.15149 -surface-flip-lr /media/2TBB/Connectome_Project/Pipelines/global/templates/standard_mesh_atlases_chimp/R.sphere.20k_fs_LR.surf.gii /media/2TBB/Connectome_Project/Pipelines/global/templates/standard_mesh_atlases_chimp/L.sphere.20k_fs_LR.surf.gii
+
+/media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/ChimpYerkes29_v1.1.L.midthickness.164k_fs_LR.surf.gii:
+/media/myelin/distribution/caret7_distribution/workbench/bin_rh_linux64/../exe_rh_linux64/wb_command -surface-average /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/ChimpYerkes29_v1.1.L.midthickness.164k_fs_LR.surf.gii -uncertainty /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/ChimpYerkes29_v1.1.L.midthickness_uncertainty.164k_fs_LR.shape.gii -stddev /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/ChimpYerkes29_v1.1.L.midthickness_std.164k_fs_LR.shape.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Agatha_Preuss_20110211/MNINonLinear/Agatha_Preuss_20110211.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Amanda_Preuss_20110729/MNINonLinear/Amanda_Preuss_20110729.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Barbara_Preuss_20110207/MNINonLinear/Barbara_Preuss_20110207.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Bo_Preuss_20110121/MNINonLinear/Bo_Preuss_20110121.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Brodie_Preuss_20110318/MNINonLinear/Brodie_Preuss_20110318.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Callie_Preuss_20110107/MNINonLinear/Callie_Preuss_20110107.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Cheeta_Preuss_20110204/MNINonLinear/Cheeta_Preuss_20110204.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Christa_Preuss_20110516/MNINonLinear/Christa_Preuss_20110516.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Cissie_Preuss_20110627/MNINonLinear/Cissie_Preuss_20110627.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Edwina_Preuss_20110324/MNINonLinear/Edwina_Preuss_20110324.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Elvira_Preuss_20110613/MNINonLinear/Elvira_Preuss_20110613.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Evelyne_Preuss_20110429/MNINonLinear/Evelyne_Preuss_20110429.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Fiona_Preuss_20110512/MNINonLinear/Fiona_Preuss_20110512.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Foxy_Preuss_20110914/MNINonLinear/Foxy_Preuss_20110914.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Frannie_Preuss_20110606/MNINonLinear/Frannie_Preuss_20110606.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Jacqueline_Preuss_20110302/MNINonLinear/Jacqueline_Preuss_20110302.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Jaimie_Preuss_20110527/MNINonLinear/Jaimie_Preuss_20110527.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Jewelle_Preuss_20110328/MNINonLinear/Jewelle_Preuss_20110328.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Leslie_Preuss_20110310/MNINonLinear/Leslie_Preuss_20110310.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Lil_One_Preuss_20110425/MNINonLinear/Lil_One_Preuss_20110425.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Liza_Preuss_20110620/MNINonLinear/Liza_Preuss_20110620.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Lulu_Preuss_20110317/MNINonLinear/Lulu_Preuss_20110317.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Marietta_Preuss_20110224/MNINonLinear/Marietta_Preuss_20110224.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Rebecca_Preuss_20110321/MNINonLinear/Rebecca_Preuss_20110321.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Rowena_Preuss_20110217/MNINonLinear/Rowena_Preuss_20110217.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Sabrina_Preuss_20110222/MNINonLinear/Sabrina_Preuss_20110222.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Slyvia_Preuss_20110502/MNINonLinear/Slyvia_Preuss_20110502.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Suwanee_Preuss_20110228/MNINonLinear/Suwanee_Preuss_20110228.L.midthickness.164k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Wenka_Preuss_20110124/MNINonLinear/Wenka_Preuss_20110124.L.midthickness.164k_fs_LR.surf.gii
+
+/media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/fsaverage_LR20k/ChimpYerkes29_v1.1.L.midthickness.20k_fs_LR.surf.gii:
+/media/myelin/distribution/caret7_distribution/workbench/bin_rh_linux64/../exe_rh_linux64/wb_command -surface-average /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/fsaverage_LR20k/ChimpYerkes29_v1.1.L.midthickness.20k_fs_LR.surf.gii -uncertainty /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/fsaverage_LR20k/ChimpYerkes29_v1.1.L.midthickness_uncertainty.20k_fs_LR.shape.gii -stddev /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/fsaverage_LR20k/ChimpYerkes29_v1.1.L.midthickness_std.20k_fs_LR.shape.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Agatha_Preuss_20110211/MNINonLinear/fsaverage_LR20k/Agatha_Preuss_20110211.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Amanda_Preuss_20110729/MNINonLinear/fsaverage_LR20k/Amanda_Preuss_20110729.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Barbara_Preuss_20110207/MNINonLinear/fsaverage_LR20k/Barbara_Preuss_20110207.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Bo_Preuss_20110121/MNINonLinear/fsaverage_LR20k/Bo_Preuss_20110121.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Brodie_Preuss_20110318/MNINonLinear/fsaverage_LR20k/Brodie_Preuss_20110318.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Callie_Preuss_20110107/MNINonLinear/fsaverage_LR20k/Callie_Preuss_20110107.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Cheeta_Preuss_20110204/MNINonLinear/fsaverage_LR20k/Cheeta_Preuss_20110204.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Christa_Preuss_20110516/MNINonLinear/fsaverage_LR20k/Christa_Preuss_20110516.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Cissie_Preuss_20110627/MNINonLinear/fsaverage_LR20k/Cissie_Preuss_20110627.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Edwina_Preuss_20110324/MNINonLinear/fsaverage_LR20k/Edwina_Preuss_20110324.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Elvira_Preuss_20110613/MNINonLinear/fsaverage_LR20k/Elvira_Preuss_20110613.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Evelyne_Preuss_20110429/MNINonLinear/fsaverage_LR20k/Evelyne_Preuss_20110429.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Fiona_Preuss_20110512/MNINonLinear/fsaverage_LR20k/Fiona_Preuss_20110512.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Foxy_Preuss_20110914/MNINonLinear/fsaverage_LR20k/Foxy_Preuss_20110914.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Frannie_Preuss_20110606/MNINonLinear/fsaverage_LR20k/Frannie_Preuss_20110606.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Jacqueline_Preuss_20110302/MNINonLinear/fsaverage_LR20k/Jacqueline_Preuss_20110302.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Jaimie_Preuss_20110527/MNINonLinear/fsaverage_LR20k/Jaimie_Preuss_20110527.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Jewelle_Preuss_20110328/MNINonLinear/fsaverage_LR20k/Jewelle_Preuss_20110328.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Leslie_Preuss_20110310/MNINonLinear/fsaverage_LR20k/Leslie_Preuss_20110310.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Lil_One_Preuss_20110425/MNINonLinear/fsaverage_LR20k/Lil_One_Preuss_20110425.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Liza_Preuss_20110620/MNINonLinear/fsaverage_LR20k/Liza_Preuss_20110620.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Lulu_Preuss_20110317/MNINonLinear/fsaverage_LR20k/Lulu_Preuss_20110317.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Marietta_Preuss_20110224/MNINonLinear/fsaverage_LR20k/Marietta_Preuss_20110224.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Rebecca_Preuss_20110321/MNINonLinear/fsaverage_LR20k/Rebecca_Preuss_20110321.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Rowena_Preuss_20110217/MNINonLinear/fsaverage_LR20k/Rowena_Preuss_20110217.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Sabrina_Preuss_20110222/MNINonLinear/fsaverage_LR20k/Sabrina_Preuss_20110222.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Slyvia_Preuss_20110502/MNINonLinear/fsaverage_LR20k/Slyvia_Preuss_20110502.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Suwanee_Preuss_20110228/MNINonLinear/fsaverage_LR20k/Suwanee_Preuss_20110228.L.midthickness.20k_fs_LR.surf.gii -surf /media/myelin/brainmappers/MyelinMapping_Project/Chimps/Wenka_Preuss_20110124/MNINonLinear/fsaverage_LR20k/Wenka_Preuss_20110124.L.midthickness.20k_fs_LR.surf.gii
+
+]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[ProgramProvenance]]></Name>
+         <Value><![CDATA[Connectome Workbench
+Type: Command Line Application
+Version: 1.2.3
+Qt Compiled Version: 5.7.0
+Qt Runtime Version: 5.7.0
+Commit: 8ca389de99696ab1a856a7e38aef852b1737f796
+Commit Date: 2017-10-18 12:36:36 -0500
+Compiled with OpenMP: YES
+Compiler: g++ (/home/caret/gcc/install/gcc-4.8.5/bin)
+Compiler Version: 4.8.5
+Compiled Debug: NO
+Operating System: Linux
+]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[Provenance]]></Name>
+         <Value><![CDATA[/home/brainmappers/workbench/fetchdir/wb_command.16193 -metric-resample L.atlasroi.164k_fs_LR.shape.gii /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/ChimpYerkes29_v1.1.L.sphere.164k_fs_LR.surf.gii /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/fsaverage_LR20k/ChimpYerkes29_v1.1.L.sphere.20k_fs_LR.surf.gii ADAP_BARY_AREA L.atlasroi.20k_fs_LR.shape.gii -area-surfs /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/ChimpYerkes29_v1.1.L.midthickness.164k_fs_LR.surf.gii /media/myelin/brainmappers/MyelinMapping_Project/Chimps/ChimpYerkes29_v1.1/MNINonLinear/fsaverage_LR20k/ChimpYerkes29_v1.1.L.midthickness.20k_fs_LR.surf.gii]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[WorkingDirectory]]></Name>
+         <Value><![CDATA[/media/myelin/chad/20171019_y29AtlasROIs]]></Value>
+      </MD>
+   </MetaData>
+   <LabelTable>
+      <Label Key="0" Red="1" Green="1" Blue="1" Alpha="0"><![CDATA[???]]></Label>
+   </LabelTable>
+<DataArray Intent="NIFTI_INTENT_NORMAL"
+           DataType="NIFTI_TYPE_FLOAT32"
+           ArrayIndexingOrder="RowMajorOrder"
+           Dimensionality="1"
+           Dim0="20252"
+           Encoding="GZipBase64Binary"
+           Endian="LittleEndian"
+           ExternalFileName=""
+           ExternalFileOffset="0">
+   <MetaData>
+      <MD>
+         <Name><![CDATA[Name]]></Name>
+         <Value><![CDATA[Medial Wall]]></Value>
+      </MD>
+      <MD>
+         <Name><![CDATA[PaletteColorMapping]]></Name>
+         <Value><![CDATA[<PaletteColorMapping Version="1">
+   <ScaleMode>MODE_AUTO_SCALE_PERCENTAGE</ScaleMode>
+   <AutoScalePercentageValues>98.000000 2.000000 2.000000 98.000000</AutoScalePercentageValues>
+   <AutoScaleAbsolutePercentageValues>2.000000 98.000000</AutoScaleAbsolutePercentageValues>
+   <UserScaleValues>-100.000000 0.000000 0.000000 100.000000</UserScaleValues>
+   <PaletteName>ROY-BIG-BL</PaletteName>
+   <InterpolatePalette>true</InterpolatePalette>
+   <DisplayPositiveData>true</DisplayPositiveData>
+   <DisplayZeroData>false</DisplayZeroData>
+   <DisplayNegativeData>true</DisplayNegativeData>
+   <ThresholdTest>THRESHOLD_TEST_SHOW_OUTSIDE</ThresholdTest>
+   <ThresholdType>THRESHOLD_TYPE_OFF</ThresholdType>
+   <ThresholdFailureInGreen>false</ThresholdFailureInGreen>
+   <ThresholdNormalValues>-1.000000 1.000000</ThresholdNormalValues>
+   <ThresholdMappedValues>-1.000000 1.000000</ThresholdMappedValues>
+   <ThresholdMappedAvgAreaValues>-1.000000 1.000000</ThresholdMappedAvgAreaValues>
+   <ThresholdDataName></ThresholdDataName>
+   <ThresholdRangeMode>PALETTE_THRESHOLD_RANGE_MODE_FILE</ThresholdRangeMode>
+   <ThresholdLowHighLinked>false</ThresholdLowHighLinked>
+   <HistogramRangeMode>PALETTE_HISTOGRAM_RANGE_ALL</HistogramRangeMode>
+   <HistogramBarsVisible>true</HistogramBarsVisible>
+   <HistogramEnvelopeVisible>false</HistogramEnvelopeVisible>
+   <HistogramBarsColor>CUSTOM</HistogramBarsColor>
+   <HistogramEnvelopeColor>RED</HistogramEnvelopeColor>
+   <HistogramEnvelopeLineWidthPercentage>0.5</HistogramEnvelopeLineWidthPercentage>
+   <HistogramNumberOfBuckets>100</HistogramNumberOfBuckets>
+   <NumericFormatMode>AUTO</NumericFormatMode>
+   <PrecisionDigits>2</PrecisionDigits>
+   <NumericSubivisions>0</NumericSubivisions>
+   <ColorBarValuesMode>DATA</ColorBarValuesMode>
+   <ShowTickMarksSelected>false</ShowTickMarksSelected>
+</PaletteColorMapping>
+]]></Value>
+      </MD>
+   </MetaData>
+   <Data>eJzt3HtQjXkYB/DjPsxKQq5RLl3WSlR0Oe/vUY5ZRoqIUikssW57HJd0x4hSic0tLBsWLWOzYTJkjaIoZFxyWbkTWu22tWux7ZwxZtk51Xuuv6zvM/P5q/M+z/f9ve855z3TvK9EEkOSGimrtr+r9ustT/K9v1iQ1ItSPz9f/MorxZgtPSPX6f7khSjIeaoT47lf/1btWY2OPar3Od2uCTR45lIp74S1ZWzilVgP1lF1Nv81s6gk04NzPtXZNq6aQ7FGco7ZVOcK+kJOfyYkcMpVw3kWGU6pZgM4ZFKdJ631lzTWNtnAeVRnMb4eRdHFL9lgqxQDfQfX/FnQxS2ELg8sZ0mzJHrOUvtnu2dSAH1jFKLH41P7/OiCMDLd/5x5zHvuYujZSqeXWZCp5wgdH4O65x790ZvWFVjocN3rntmhiZwqLbN0NFPcdU7iqY50/IanlusrblbQz960+5C7FrPEzelb5kt7MnppuI7iZjg/m0RNYs9qsC/i+j9Y7EkLErqq2V9c76/NbGmi83NnXfdNbGFCuu455tvOlH1jl4jrRnH9sjs70YonMXWsq7heJ3wCKa+4vJZe4vrs2xpAJjuya+gjrod0sj81m5Knooe47ZtXTSDFto5Mk22LE+RU7vqMqbudUgPbNqTuNk8Ouoh+LYCLzJ3unZyq4fcO//wAAB8b3wh/7hmUllfEsZ5V5lQ+ScExh0SS7FAhuJe2pkq7hVzmK6vZDnfW9OpndPvkNIPPjv6rlXTvpSvCb5UVrMdeP4PNfVs3k62EwjnX2ZIRfnTtWZRBZiqr8Iq9MCNgHVu5Xh/vB9Vl6mQjRJfdZzZNI/U+S1mpKc7sanA7WtZvkV7nKMtsozPLcupPJ3K1OYZ11+1fktkxx0dszG5NzlVxdTPZXJA+/J3duzhX572VddbkhfAgbqDO+56eWybd0Ocpu15a1+eIeuXz9ylhdYYRbZeH6qRfu8gY1+0vbNncnGCteykrbvw2IeqCj9Z98hYUC6W5I7TqUX0nXYhNHafx9i3l6cJ3Rh4abdtt2dh68n/2j6V0/b0BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGJF3omkxQMOM8kHVE9XbpD2PrmC9Zpiy339AODjYnskjHuGd0k3D+OeQUk2MoKGZlxgvHNs6TqdtqxYyzXHq1FuNKFVvsBj9vr7Mjp3bT5r5HNZaujZs00tKCsnTvrmm9pwc+PMH75zDaPfWZ/bL6BLXfqRt02MQWYWSjrR+NxnwvtXQfqZ5RtbwboHrXLV56zH1WHU7PFxFdecup1T3D9PrzNyw9qSvvpvkjuS66CDUl33Pj+/hNkbrddp36eZxjpbhzVtIsj/+CP2w1fdtT4Hx5VEUULSMp2cA8GpDbTeR0dyIrvkvhq/j0Ny2pFs4CqNjt3+NHuN8ld4RVHPycOZutu9cEhXa5ufWt6s8/XWldFk93IaZZoVqHztcOtwkm2aRpG7HWhn00zW8OG+99bazk1BAyO7kHmL1Sz/fPZ/jsObOuzfoZ79Ftb+PQ8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAUJ/kXYyiySXzqKNXKBWOjOaepyad02S0tvc2Vm26nJ10yGa3MquYpcKGij9xp0WNFdzzKbGtHWhh/qb37jWxHfrQtWpvjlRxviVztMlnLUYLZHpvNvWojDJottjsBTTW+QKL93rlVNudE6/bpriGbDgiWO86wJqHDzFItnObZ9OBO6PUuoeEtU6Sdut/ikU4jKLmxmGUVqaf9XS6vFWje1sGHXksbbUnkDmaZ7ErY8rYmGMWVFTkQTcqvWhzlSdlmU+j137htLpHhIbZdFOzg2cIzcKWCr6O8YKp7JWwszKM/ZGwg40s7ko9TYKo0xZ11lV/FfVpgqt512FCumU8K8itZhNLifrtCeWW593yjj4o3Sm3Yonejej7w6O5ZnlbSw8VSPuuLmLGjYOpc34ktxzKsjjqInimZTJZ8CRuGZSVkrhEYDObcpuPQqFQKBRKmzLc76b/k7a9SkX8luGf80xZAPVo3FDlswbqU84YWV3ryTefb0Qo3a0OrCUj33xzM7zJ2qpDDceZb7b2a/JrWDd+meYLAtWnTHf7hFJRfJDen0kk1uiXo2lCib1BnvlUF5skC+Kd41DYIppTqjDYM75U2TU/kGYOWSXwmm9p5kfPFe25PNdu5vRAg88EAAAAAAAAAAAAAAAAAAAAAIAPwz9m+u8p</Data>
+</DataArray>
+</GIFTI>

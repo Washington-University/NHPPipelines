@@ -1,0 +1,60 @@
+status file for recon-all
+Fri Apr 20 17:21:42 CDT 2012
+#@# MotionCor Fri Apr 20 17:21:45 CDT 2012
+recon-all -s MacaqueYerkes19 finished without error at Fri Apr 20 17:22:05 CDT 2012
+
+
+
+New invocation of recon-all 
+
+
+
+status file for recon-all
+Fri Apr 20 17:45:48 CDT 2012
+#@# Intensity Normalization Fri Apr 20 17:45:48 CDT 2012
+recon-all -s MacaqueYerkes19 finished without error at Fri Apr 20 17:47:47 CDT 2012
+
+
+
+New invocation of recon-all 
+
+
+
+status file for recon-all
+Fri Apr 20 17:47:51 CDT 2012
+#@# CA Normalize Fri Apr 20 17:47:51 CDT 2012
+recon-all -s MacaqueYerkes19 finished without error at Fri Apr 20 17:49:10 CDT 2012
+
+
+
+New invocation of recon-all 
+
+
+
+status file for recon-all
+Fri Apr 20 17:49:13 CDT 2012
+#@# CA Reg Fri Apr 20 17:49:13 CDT 2012
+recon-all -s MacaqueYerkes19 finished without error at Fri Apr 20 20:37:52 CDT 2012
+
+
+
+New invocation of recon-all 
+
+
+
+status file for recon-all
+Fri Apr 20 21:14:09 CDT 2012
+#@# CA Reg Inv Fri Apr 20 21:14:09 CDT 2012
+recon-all -s MacaqueYerkes19 finished without error at Fri Apr 20 21:14:45 CDT 2012
+
+
+
+New invocation of recon-all 
+
+
+
+status file for recon-all
+Fri Apr 20 21:14:48 CDT 2012
+#@# SubCort Seg Fri Apr 20 21:14:48 CDT 2012
+#@# Merge ASeg Fri Apr 20 21:49:26 CDT 2012
+recon-all -s MacaqueYerkes19 finished without error at Fri Apr 20 21:49:27 CDT 2012
