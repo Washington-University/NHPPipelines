@@ -28,6 +28,8 @@ lowpass=20
 
 if [ $SPECIES = Human ] ; then
   scalefactor=100
+elif [ $SPECIES = Chimp ] ; then
+  scalefactor=100
 elif [ $SPECIES = Macaque ] ; then
 	scalefactor=80
 elif [ $SPECIES = Marmoset ] ; then
