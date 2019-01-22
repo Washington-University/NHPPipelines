@@ -56,11 +56,7 @@ PARAMETERs are [ ] = optional; < > = user supplied value
    --template-scene-dual-screen=<template scene file>
    --template-scene-single-screen=<template scene file>
    --reuse-high-pass=<YES | NO>
-<<<<<<< HEAD:ICAFIX/PostFix.sh
    [--matlab-run-mode={0, 1, 2}] defaults to ${G_DEFAULT_MATLAB_RUN_MODE}
-=======
-  [--matlab-run-mode={0, 1, 2}] defaults to 0 (Compiled Matlab)"
->>>>>>> *Bugfix to prior commit:PostFix/PostFix.sh
      0 = Use compiled MATLAB
      1 = Use interpreted MATLAB
      2 = Use octave
