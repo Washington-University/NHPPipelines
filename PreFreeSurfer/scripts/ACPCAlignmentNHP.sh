@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 set -e
 
 # Requirements for this script
@@ -52,13 +52,11 @@ Reference=`getopt1 "--ref" $@`  # "$3"
 Output=`getopt1 "--out" $@`  # "$4"
 OutputMatrix=`getopt1 "--omat" $@`  # "$5"
 BrainSizeOpt=`getopt1 "--brainsize" $@`  # "$6"
-IdentMat=`getopt1 "--identmat" $@` # Inserted by Takuya Hayashi Oct 24th 2015 to force to apply ident.mat to the original T1w and T2w.
 
 # default parameters
 Reference=`defaultopt ${Reference} ${FSLDIR}/data/standard/MNI152_T1_1mm`
 Output=`$FSLDIR/bin/remove_ext $Output`
 WD=`defaultopt $WD ${Output}.wdir`
-IdentMat=`defaultopt ${IdentMat} NONE` # Inserted by Takuya Hayashi Oct 24th 2015 to force to apply ident.mat to the original T1w and T2w.
 
 # make optional arguments truly optional  (as -b without a following argument would crash robustfov)
 if [ X${BrainSizeOpt} != X ] ; then BrainSizeOpt="-b ${BrainSizeOpt}" ; fi
@@ -74,10 +72,7 @@ echo "PWD = `pwd`" >> $WD/log.txt
 echo "date: `date`" >> $WD/log.txt
 echo " " >> $WD/log.txt
 
-########################################## DO WORK ########################################## 
-
-# Modified from here by Takuya Hayashi Oct 24th 2015
-if [ $IdentMat = NONE ] ; then
+########################################## DO WORK ##########################################
 
 # Crop the FOV
 ${FSLDIR}/bin/robustfov -i "$Input" -m "$WD"/roi2full.mat -r "$WD"/robustroi.nii.gz $BrainSizeOpt
@@ -85,9 +80,15 @@ ${FSLDIR}/bin/robustfov -i "$Input" -m "$WD"/roi2full.mat -r "$WD"/robustroi.nii
 # Invert the matrix (to get full FOV to ROI)
 ${FSLDIR}/bin/convert_xfm -omat "$WD"/full2roi.mat -inverse "$WD"/roi2full.mat
 
-# Register cropped image to MNI152 (12 DOF)
-${FSLDIR}/bin/flirt -in "$Input"_brain -ref "$WD"/robustroi.nii.gz -applyxfm -init "$WD"/full2roi.mat -out "$WD"/robustroi.nii.gz # Inserted by Takuya Hayashi, 24th Oct 2015
+# Test if pre-brain mask exists
+if [ `${FSLDIR}/bin/imtest ${Input}_brain` = 1 ] ; then
+        echo "Found ${Input}_brain.nii.gz. Use ${Input}_brain for init registration"
+        ${FSLDIR}/bin/flirt -in "$Input"_brain -ref "$WD"/robustroi.nii.gz -applyxfm -init "$WD"/full2roi.mat -out "$WD"/robustroi.nii.gz # Inserted by Takuya Hayashi, 24th Oct 2015
+else
+        echo "Not found ${Input}_brain.nii.gz. Use $Input for init registration"
+fi
 
+# Register cropped image to MNI152 (12 DOF)
 ${FSLDIR}/bin/flirt -interp spline -in "$WD"/robustroi.nii.gz -ref "$Reference" -omat "$WD"/roi2std.mat -out "$WD"/acpc_final.nii.gz -searchrx -30 30 -searchry -30 30 -searchrz -30 30 -dof 6
 
 # Concatenate matrices to get full FOV to MNI
@@ -98,25 +99,19 @@ ${FSLDIR}/bin/aff2rigid "$WD"/full2std.mat "$OutputMatrix"
 
 # Create a resampled image (ACPC aligned) using spline interpolation
 ${FSLDIR}/bin/applywarp --rel --interp=spline -i "$Input" -r "$Reference" --premat="$OutputMatrix" -o "$Output"
-fslmaths "$Input"_brain -thr 0.1 -bin "$Input"_brain_mask # Inserted by Takuya Hayashi
-${FSLDIR}/bin/applywarp --rel --interp=nn -i "$Input"_brain_mask -r "$Reference" --premat="$OutputMatrix" -o "$Output"_brain_mask # Inserted by Takuya Hayashi
-fslmaths "$Output" -mas "$Output"_brain_mask "$Output"_brain # Inserted by Takuya Hayashi
 
-else 
-
-cp ${FSLDIR}/etc/flirtsch/ident.mat "$OutputMatrix" # Inserted by Takuya Hayashi
-${FSLDIR}/bin/imcp "$Input" "$Output" # Inserted by Takuya Hayashi
-${FSLDIR}/bin/imcp "$Input"_brain "$Output"_brain # Inserted by Takuya Hayashi
- 
+# Register pre-brain mask
+if [ `${FSLDIR}/bin/imtest ${Input}_brain` = 1 ] ; then
+ fslmaths "$Input"_brain -thr 0.1 -bin "$Input"_brain_mask
+ ${FSLDIR}/bin/applywarp --rel --interp=nn -i "$Input"_brain_mask -r "$Reference" --premat="$OutputMatrix" -o "$Output"_brain_mask # Inserted by Takuya Hayashi
+ fslmaths "$Output" -mas "$Output"_brain_mask "$Output"_brain
 fi
-
-# Modified until here by Takuya Hayashi Oct 24th 2015
 
 echo " "
 echo " END: ACPCAlignment"
 echo " END: `date`" >> $WD/log.txt
 
-########################################## QA STUFF ########################################## 
+########################################## QA STUFF ##########################################
 
 if [ -e $WD/qa.txt ] ; then rm -f $WD/qa.txt ; fi
 echo "cd `pwd`" >> $WD/qa.txt
