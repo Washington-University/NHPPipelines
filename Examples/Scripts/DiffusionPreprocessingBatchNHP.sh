@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 get_batch_options() {
     local arguments=($@)
@@ -33,9 +33,8 @@ get_batch_options() {
 
 get_batch_options $@
 
-#StudyFolder="/mnt/FAI1/MRI/Human/HCP-RIKEN" #Location of Subject folders (named by subjectID)
 #Subjlist="" #Space delimited list of subject IDs
-EnvironmentScript="/mnt/FAI1/devel/NHPHCPPipeline/Examples/Scripts/SetUpHCPPipelineNHP.sh" #Pipeline environment script
+EnvironmentScript="/mnt/pub/devel/NHPHCPPipeline/Examples/Scripts/SetUpHCPPipelineNHP.sh" #Pipeline environment script
 
 if [ -n "${command_line_specified_study_folder}" ]; then
     StudyFolder="${command_line_specified_study_folder}"
@@ -64,7 +63,7 @@ echo "$@"
 PRINTCOM=""
 
 
-########################################## INPUTS ########################################## 
+########################################## INPUTS ##########################################
 
 #Scripts called by this script do assume they run on the outputs of the PreFreeSurfer Pipeline,
 #which is a prerequisite for this pipeline
@@ -110,7 +109,7 @@ for Subject in $Subjlist ; do
   for i in `echo $DmrilistNegative | sed -e 's/@/ /g'` ; do
    NegData="`imglob -extension $StudyFolder/$SubjectID/RawData/${i}`@${NegData}"
   done
- 
+
   # Data with negative Phase encoding direction. Up to N>=1 series (here N=3), separated by @. (LR in HCP data, AP in 7T HCP data)
   # If corresponding series is missing (e.g. 2 RL series and 1 LR) use EMPTY.
   #NegData="${RawDataDir}/${SubjectID}_3T_DWI_dir95_LR.nii.gz@${RawDataDir}/${SubjectID}_3T_DWI_dir96_LR.nii.gz@${RawDataDir}/${SubjectID}_3T_DWI_dir97_LR.nii.gz"
@@ -144,4 +143,3 @@ for Subject in $Subjlist ; do
       --printcom=$PRINTCOM
 
 done
-
