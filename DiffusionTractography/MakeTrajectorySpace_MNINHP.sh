@@ -73,9 +73,9 @@ imcp "${MNIFolder}"/"${wmparc}" "$ROIsFolder"/"$wmparc"."${StandardResolution}".
 ${Caret7_Command} -volume-label-import "$ROIsFolder"/"$wmparc"."${StandardResolution}".nii.gz $FreeSurferSubcorticalLabels "$ROIsFolder"/ROIs."${StandardResolution}".nii.gz -discard-others -unlabeled-value 0
 
 if [ $SPECIES = Macaque ] ; then
-imcp /mnt/FAI1/devel/NHPHCPPipeline/global/templates/standard_mesh_atlases_macaque_dedrift/Atlas_ROIs.0.5.nii.gz "$ROIsFolder"/ROIs."${StandardResolution}".nii.gz
+imcp /mnt/pub/devel/NHPHCPPipeline/global/templates/standard_mesh_atlases_macaque_dedrift/Atlas_ROIs.0.5.nii.gz "$ROIsFolder"/ROIs."${StandardResolution}".nii.gz
 elif [ $SPECIES = Marmoset ; then
-imcp /mnt/FAI1/devel/NHPHCPPipeline/global/templates/standard_mesh_atlases_macaque_dedrift/Atlas_ROIs.0.2.nii.gz "$ROIsFolder"/ROIs."${StandardResolution}".nii.gz
+imcp /mnt/pub/devel/NHPHCPPipeline/global/templates/standard_mesh_atlases_macaque_dedrift/Atlas_ROIs.0.2.nii.gz "$ROIsFolder"/ROIs."${StandardResolution}".nii.gz
 fi
 
 ${FSLDIR}/bin/fslmaths "$ROIsFolder"/ribbon."${StandardResolution}".nii.gz -sub "$ROIsFolder"/ribbon."${StandardResolution}".nii.gz "$ROIsFolder"/temp/trajectory
@@ -89,7 +89,7 @@ for Structure in $wmparcStructuresToDeleteSTRING ; do
   ${FSLDIR}/bin/fslmaths "$ROIsFolder"/temp/$Structure -add "$ROIsFolder"/temp/delete_mask.nii.gz "$ROIsFolder"/temp/delete_mask.nii.gz
 done
 ${FSLDIR}/bin/fslmaths "$ROIsFolder"/temp/delete_mask.nii.gz  -bin -sub 1 -mul -1 "$ROIsFolder"/temp/inverse_delete_mask.nii.gz
-  
+
 #CEREBELLAR_WHITE_MATTER_LEFT CEREBELLUM_LEFT THALAMUS_LEFT CAUDATE_LEFT PUTAMEN_LEFT PALLIDUM_LEFT BRAIN_STEM HIPPOCAMPUS_LEFT AMYGDALA_LEFT ACCUMBENS_LEFT DIENCEPHALON_VENTRAL_LEFT CEREBELLAR_WHITE_MATTER_RIGHT CEREBELLUM_RIGHT THALAMUS_RIGHT CAUDATE_RIGHT PUTAMEN_RIGHT PALLIDUM_RIGHT HIPPOCAMPUS_RIGHT AMYGDALA_RIGHT ACCUMBENS_RIGHT DIENCEPHALON_VENTRAL_RIGHT
 wmparcStructuresToKeepSTRING="7 8 10 11 12 13 16 17 18 26 28 46 47 49 50 51 52 53 54 58 60"
 for Structure in $wmparcStructuresToKeepSTRING ; do
@@ -107,7 +107,7 @@ done
 
 #Fornix, CC_Posterior, CC_Mid_Posterior, CC_Central, CC_MidAnterior, CC_Anterior
 CorpusCallosumToAdd="250 251 252 253 254 255"
-for Structure in $CorpusCallosumToAdd ; do 
+for Structure in $CorpusCallosumToAdd ; do
   ${FSLDIR}/bin/fslmaths "$ROIsFolder"/"$wmparc"."$StandardResolution" -thr $Structure -uthr $Structure -bin "$ROIsFolder"/temp/$Structure
   ${FSLDIR}/bin/fslmaths "$ROIsFolder"/temp/$Structure -add "$ROIsFolder"/temp/CC_mask.nii.gz "$ROIsFolder"/temp/CC_mask.nii.gz
 done
@@ -129,28 +129,28 @@ ${FSLDIR}/bin/fslmaths "$ROIsFolder"/temp/trajectory.nii.gz -sub "$ROIsFolder"/t
 rm -r "$ROIsFolder"/temp
 
 
-#Extract atlas-derived ROIs that can be used as subcortical volume seeds. 
+#Extract atlas-derived ROIs that can be used as subcortical volume seeds.
 ROIStructuresToSeed="26 58 18 54 16 11 50 8 47 28 60 17 53 13 52 12 51 10 49"
 ROINames=("ACCUMBENS_LEFT" "ACCUMBENS_RIGHT" "AMYGDALA_LEFT" "AMYGDALA_RIGHT" "BRAIN_STEM" "CAUDATE_LEFT" "CAUDATE_RIGHT" "CEREBELLUM_LEFT" "CEREBELLUM_RIGHT" "DIENCEPHALON_VENTRAL_LEFT" "DIENCEPHALON_VENTRAL_RIGHT" "HIPPOCAMPUS_LEFT" "HIPPOCAMPUS_RIGHT" "PALLIDUM_LEFT" "PALLIDUM_RIGHT" "PUTAMEN_LEFT" "PUTAMEN_RIGHT" "THALAMUS_LEFT" "THALAMUS_RIGHT")
 count=0
-for Structure in $ROIStructuresToSeed ; do 
+for Structure in $ROIStructuresToSeed ; do
     ${FSLDIR}/bin/fslmaths "$ROIsFolder"/"Atlas_ROIs.${StandardResolution}" -thr $Structure -uthr $Structure -bin "$ResultsFolder"/CIFTI_STRUCTURE_${ROINames[$count]}
     #${FSLDIR}/bin/fslmaths "$ResultsFolder"/CIFTI_STRUCTURE_${ROINames[$count]} -kernel gauss 2 -ero "$ResultsFolder"/CIFTI_STRUCTURE_Ero_${ROINames[$count]}
     count=$(( $count + 1 ))
 done
 
 
-#Extract subject-specific, Freesurfer-obtained ROIs that can be used as subcortical volume seeds. 
+#Extract subject-specific, Freesurfer-obtained ROIs that can be used as subcortical volume seeds.
 #Notice that ROIs.2 file has been obtained from wmparc.2 (i.e. Freesurfer pipeline)
 count=0
-for Structure in $ROIStructuresToSeed ; do 
+for Structure in $ROIStructuresToSeed ; do
     ${FSLDIR}/bin/fslmaths "$ROIsFolder"/ROIs."$StandardResolution" -thr $Structure -uthr $Structure -bin "$ResultsFolder"/STRUCTURE_${ROINames[$count]}
     #${FSLDIR}/bin/fslmaths "$ResultsFolder"/STRUCTURE_${ROINames[$count]} -kernel gauss 2 -ero "$ResultsFolder"/STRUCTURE_Ero_${ROINames[$count]}
     count=$(( $count + 1 ))
 done
 
 
-#Create Subject-specific Greyordinate dense scalar 
+#Create Subject-specific Greyordinate dense scalar
 ${Caret7_Command} -cifti-create-dense-scalar "$ResultsFolder"/Subject_Greyordinates.dscalar.nii -volume "$ROIsFolder"/ROIs."$StandardResolution".nii.gz "$ROIsFolder"/ROIs."$StandardResolution".nii.gz -left-metric ${DownSampleFolder}/${Subject}.L.atlasroi.${LowResMesh}k_fs_LR.shape.gii -roi-left ${DownSampleFolder}/${Subject}.L.atlasroi.${LowResMesh}k_fs_LR.shape.gii -right-metric ${DownSampleFolder}/${Subject}.R.atlasroi.${LowResMesh}k_fs_LR.shape.gii -roi-right ${DownSampleFolder}/${Subject}.R.atlasroi.${LowResMesh}k_fs_LR.shape.gii
 
 #Export Subject-specific volume voxel_list
