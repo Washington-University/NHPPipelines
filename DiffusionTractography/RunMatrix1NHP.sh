@@ -3,8 +3,8 @@
 #bindir=/home/moises/PTX2/bin
 #scriptsdir=/home/moises/Tractography_gpu_scripts
 #cuda_queue=dque_gpu
-bindir=/mnt/FAI1/devel/PROBTRACKX2/CentOS6.5
-scriptsdir=/mnt/FAI1/devel/NHPHCPPipeline/Tractography
+bindir=/mnt/pub/devel/PROBTRACKX2/CentOS6.5
+scriptsdir=/mnt/pub/devel/NHPHCPPipeline/Tractography
 cuda_queue=cuda.q
 
 #this is specific for WashU cluster
@@ -25,8 +25,8 @@ StudyFolder=$1          # "$1" #Path to Generic Study folder
 Subject=$2              # "$2" #SubjectID
 
 if [ "$SPECIES" = "Human" ] || [ "$SPECIES" = "" ] ; then
-	HCPPIPEDIR=/usr/local/HCP/Pipelines-3.17.0
-	. $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipelineNHP.sh 
+	HCPPIPEDIR=/mnt/pub/devel/NHPHCPPipeline
+	. $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipelineNHP.sh
 	TemplateFolder="${HCPPIPEDIR_Templates}/91282_Greyordinates"
 	StdRef=$FSLDIR/data/standard/MNI152_T1_2mm_brain_mask
 elif [ "$SPECIES" = "Macaque_MNI" ] ; then
@@ -40,13 +40,13 @@ elif [ "$SPECIES" = "Macaque_MNI" ] ; then
 		echo "ERROR: T1wTemplate not yet exported"; exit 1
 	fi
 elif [ "$SPECIES" = "Macaque" ] || [ "$SPECIES" = "Marmoset" ] ; then
-       HCPPIPEDIR=/mnt/FAI1/devel/NHPHCPPipeline
+       HCPPIPEDIR=/mnt/pub/devel/NHPHCPPipeline
        . $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipelineNHP.sh
 	TemplateFolder="$SurfaceAtlasDIR" #"${HCPPIPEDIR_Templates}/standard_mesh_atlases_macaque"
 	StdRef=$T1wTemplate
 	if [ "$StdRef" = "" ] ; then
 		echo "ERROR: T1wTemplate not yet exported"; exit 1
-	fi	
+	fi
 else
 	echo "ERROR: $SPECIES not yet supported"; exit 1
 fi
@@ -140,10 +140,10 @@ echo $ResultsFolder/CIFTI_STRUCTURE_THALAMUS_RIGHT >> $ResultsFolder/wtstop
 echo $ResultsFolder/white.L.asc >> $ResultsFolder/wtstop
 echo $ResultsFolder/white.R.asc >> $ResultsFolder/wtstop
 o=" $o --stop=${ResultsFolder}/stop --wtstop=$ResultsFolder/wtstop --forcefirststep"  #Should we include an exclusion along the midsagittal plane (without the CC and the commisures)?
-#o=" $o --waypoints=${ROIsFolder}/Whole_Brain_Trajectory_ROI_2"       #Use a waypoint to exclude streamlines that go through CSF 
+#o=" $o --waypoints=${ROIsFolder}/Whole_Brain_Trajectory_ROI_2"       #Use a waypoint to exclude streamlines that go through CSF
 TrajRes=`${FSLDIR}/bin/fslval $StdRef pixdim1`
 TrajRes=`printf "%0.2f" ${TrajRes}`
-o=" $o --waypoints=${ROIsFolder}/Whole_Brain_Trajectory_ROI_$TrajRes"       #Use a waypoint to exclude streamlines that go through CSF 
+o=" $o --waypoints=${ROIsFolder}/Whole_Brain_Trajectory_ROI_$TrajRes"       #Use a waypoint to exclude streamlines that go through CSF
 
 #Define Targets
 o=" $o --omatrix1"
@@ -157,7 +157,7 @@ echo $bindir/probtrackx2_gpu $generic_options $o $out  >> $ResultsFolder/command
 
 #Do Tractography
 #N100: ~5h, 35GB RAM
-echo "Queueing Probtrackx" 
+echo "Queueing Probtrackx"
 
 # USING SGE-FMRIB
 #ptx_id=`fsl_sub -T 720 -R 40000 -Q $cuda_queue -l $ResultsFolder/Mat1_logs -N ptx2_Mat1 -t $ResultsFolder/commands_Mat1.txt`
@@ -169,7 +169,7 @@ echo "Queueing Probtrackx"
 # RIKEN
 ptx_id=`fsl_sub -T 720 -q $cuda_queue -l $ResultsFolder/Mat1_logs -N ptx_Mat1 -t $ResultsFolder/commands_Mat1.txt`
 echo "$ptx_id"
-sleep 10 
+sleep 10
 
 #Create CIFTI file=Mat1+Mat1_transp (1.5 hours, 36 GB)
 #fsl_sub -T 180 -R 40000 -j $ptx2_id -l $ResultsFolder/Mat1_logs -N Mat1_conn $scriptsdir/PostProcMatrix1.sh $StudyFolder $Subject $TemplateFolder ${OutFileName}
