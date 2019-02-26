@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 #Subjlist="M126 M128 M129 M131 M132" #Space delimited list of subject IDs
 #StudyFolder="/media/myelin/brainmappers/Connectome_Project/InVivoMacaques" #Location of Subject folders (named by subjectID)
@@ -23,7 +23,7 @@ PRINTCOM=""
 #PRINTCOM="echo"
 #QUEUE="-q veryshort.q"
 
-########################################## INPUTS ########################################## 
+########################################## INPUTS ##########################################
 
 #Scripts called by this script do NOT assume anything about the form of the input names or paths.
 #This batch script assumes the HCP raw data naming convention, e.g.
@@ -90,7 +90,7 @@ for Subject in $Subjlist ; do
   #Scan Settings
   TE="NONE" #"2.46" delta TE in ms for field map or "NONE" if not used
   DwellTime="NONE" # Echo Spacing or Dwelltime of SE Field Map image (or "NONE" if not used) = 1/(BandwidthPerPixelPhaseEncode * # of phase encoding samples): DICOM field (0019,1028) = BandwidthPerPixelPhaseEncode, DICOM field (0051,100b) AcquisitionMatrixText first value (# of phase encoding samples)
-  SEUnwarpDir="NONE" # x or y (minus or not does not matter) "NONE" if not used 
+  SEUnwarpDir="NONE" # x or y (minus or not does not matter) "NONE" if not used
   T1wSampleSpacing="NONE" #"0.0000150" DICOM field (0019,1018) in s or "NONE" if not used
   T2wSampleSpacing="NONE" #"0.0000036" DICOM field (0019,1018) in s or "NONE" if not used
   UnwarpDir="NONE" # "y-" z appears to be best or "NONE" if not used
@@ -102,10 +102,8 @@ for Subject in $Subjlist ; do
   AvgrdcSTRING="NONE" #Averaging and readout distortion correction methods: "NONE" = average any repeats with no readout correction "FIELDMAP" = average any repeats and use field map for readout correction "TOPUP" = Use Spin Echo FieldMap
   TopupConfig="NONE" #Config for topup or "NONE" if not used
   BiasFieldSmoothingSigma="${BiasFieldSmoothingSigma:=5}"  # Useally set to 5. "NONE" if not used
-  LOG="-l ${StudyFolder}/${Subject}/logs"
-  IdentMat="${IdentMat:=NONE}" # Do regisration in ACPCAlignment, T2wToT1Reg and AtlasRegistration (NONE) or not (TRUE). Defualt is NONE
 
-#  ${FSLDIR}/bin/fsl_sub ${QUEUE} ${LOG} \
+#  ${FSLDIR}/bin/fsl_sub ${QUEUE} \
      ${HCPPIPEDIR}/PreFreeSurfer/PreFreeSurferPipelineNHP.sh \
       --path="$StudyFolder" \
       --subject="$Subject" \
@@ -135,9 +133,8 @@ for Subject in $Subjlist ; do
       --avgrdcmethod="$AvgrdcSTRING" \
       --topupconfig="$TopupConfig" \
       --bfsigma="$BiasFieldSmoothingSigma" \
-      --identmat="$IdentMat"   \
       --printcom=$PRINTCOM
-      
+
   # The following lines are used for interactive debugging to set the positional parameters: $1 $2 $3 ...
 
   echo "set -- --path=${StudyFolder} \
@@ -168,10 +165,8 @@ for Subject in $Subjlist ; do
       --avgrdcmethod=${AvgrdcSTRING} \
       --topupconfig=${TopupConfig} \
       --bfsigma=${BiasFieldSmoothingSigma} \
-      --identmat=$IdentMat   \
       --printcom=${PRINTCOM}"
 
   echo ". ${EnvironmentScript}"
 
 done
-
