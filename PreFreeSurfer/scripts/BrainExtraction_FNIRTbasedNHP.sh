@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 set -e
 
 # Requirements for this script
@@ -33,8 +33,8 @@ defaultopt() {
 
 # All except variables starting with $Output are saved in the Working Directory:
 #     roughlin.mat "$BaseName"_to_MNI_roughlin.nii.gz   (flirt outputs)
-#     NonlinearRegJacobians.nii.gz IntensityModulatedT1.nii.gz NonlinearReg.txt NonlinearIntensities.nii.gz 
-#     NonlinearReg.nii.gz (the coefficient version of the warpfield) 
+#     NonlinearRegJacobians.nii.gz IntensityModulatedT1.nii.gz NonlinearReg.txt NonlinearIntensities.nii.gz
+#     NonlinearReg.nii.gz (the coefficient version of the warpfield)
 #     str2standard.nii.gz standard2str.nii.gz   (both warpfields in field format)
 #     "$BaseName"_to_MNI_nonlin.nii.gz   (spline interpolated output)
 #    "$OutputBrainMask" "$OutputBrainExtractedImage"
@@ -80,22 +80,19 @@ echo "PWD = `pwd`" >> $WD/log.txt
 echo "date: `date`" >> $WD/log.txt
 echo " " >> $WD/log.txt
 
-########################################## DO WORK ########################################## 
+########################################## DO WORK ##########################################
 
-if [ "$IdentMat" != TRUE ] ; then
 # Register to 2mm reference image (linear then non-linear)
-#${FSLDIR}/bin/flirt -interp spline -dof 12 -in "$Input" -ref "$Reference2mm" -omat "$WD"/roughlin.mat -out "$WD"/"$BaseName"_to_MNI_roughlin.nii.gz -nosearch
 
-${FSLDIR}/bin/flirt -interp spline -dof 12 -in "$Input"_brain -ref "`remove_ext $Reference2mm`"_brain -omat "$WD"/roughlin.mat -out "$WD"/"$BaseName"_to_MNI_roughlin.nii.gz -nosearch
+if [ ! -e "$Input"_brain ] ; then
+      ${FSLDIR}/bin/flirt -interp spline -dof 12 -in "$Input" -ref "$Reference2mm" -omat "$WD"/roughlin.mat -out "$WD"/"$BaseName"_to_MNI_roughlin.nii.gz -nosearch
+      ${FSLDIR}/bin/fnirt --in="$Input" --ref="$Reference2mm" --aff="$WD"/roughlin.mat --refmask="$Reference2mmMask" --fout="$WD"/str2standard.nii.gz --jout="$WD"/NonlinearRegJacobians.nii.gz --refout="$WD"/IntensityModulatedT1.nii.gz --iout="$WD"/"$BaseName"_to_MNI_nonlin.nii.gz --logout="$WD"/NonlinearReg.txt --intout="$WD"/NonlinearIntensities.nii.gz --cout="$WD"/NonlinearReg.nii.gz --config="$FNIRTConfig"
 
-#${FSLDIR}/bin/fnirt --in="$Input" --ref="$Reference2mm" --aff="$WD"/roughlin.mat --refmask="$Reference2mmMask" --fout="$WD"/str2standard.nii.gz --jout="$WD"/NonlinearRegJacobians.nii.gz --refout="$WD"/IntensityModulatedT1.nii.gz --iout="$WD"/"$BaseName"_to_MNI_nonlin.nii.gz --logout="$WD"/NonlinearReg.txt --intout="$WD"/NonlinearIntensities.nii.gz --cout="$WD"/NonlinearReg.nii.gz --config="$FNIRTConfig"
+else # use pre-brain mask for robust initialization
+      ${FSLDIR}/bin/flirt -interp spline -dof 12 -in "$Input"_brain -ref "`remove_ext $Reference2mm`"_brain -omat "$WD"/roughlin.mat -out "$WD"/"$BaseName"_to_MNI_roughlin.nii.gz -nosearch
+      ${FSLDIR}/bin/fslmaths "$Input"_brain -bin "$WD"/brainmask_TMP
+      ${FSLDIR}/bin/fnirt --in="$Input" --ref="$Reference2mm" --aff="$WD"/roughlin.mat --refmask="$Reference2mmMask" --fout="$WD"/str2standard.nii.gz --jout="$WD"/NonlinearRegJacobians.nii.gz --refout="$WD"/IntensityModulatedT1.nii.gz --iout="$WD"/"$BaseName"_to_MNI_nonlin.nii.gz --logout="$WD"/NonlinearReg.txt --intout="$WD"/NonlinearIntensities.nii.gz --cout="$WD"/NonlinearReg.nii.gz --config="$FNIRTConfig" #--inmask="$WD"/brainmask_TMP
 
-${FSLDIR}/bin/fslmaths "$Input"_brain -bin "$WD"/brainmask_TMP
-
-${FSLDIR}/bin/fnirt --in="$Input" --ref="$Reference2mm" --aff="$WD"/roughlin.mat --refmask="$Reference2mmMask" --fout="$WD"/str2standard.nii.gz --jout="$WD"/NonlinearRegJacobians.nii.gz --refout="$WD"/IntensityModulatedT1.nii.gz --iout="$WD"/"$BaseName"_to_MNI_nonlin.nii.gz --logout="$WD"/NonlinearReg.txt --intout="$WD"/NonlinearIntensities.nii.gz --cout="$WD"/NonlinearReg.nii.gz --config="$FNIRTConfig" #--inmask="$WD"/brainmask_TMP
-
-else
- convertwarp -m ${FSLDIR}/etc/flirtsch/ident.mat -r "`remove_ext $Reference2mm`"_brain -o "$WD"/str2standard.nii.gz -j "$WD"/NonlinearRegJacobians.nii.gz
 fi
 
 # Overwrite the image output from FNIRT with a spline interpolated highres version
@@ -111,7 +108,7 @@ echo " "
 echo " END: BrainExtrtaction_FNIRT"
 echo " END: `date`" >> $WD/log.txt
 
-########################################## QA STUFF ########################################## 
+########################################## QA STUFF ##########################################
 
 if [ -e $WD/qa.txt ] ; then rm -f $WD/qa.txt ; fi
 echo "cd `pwd`" >> $WD/qa.txt
