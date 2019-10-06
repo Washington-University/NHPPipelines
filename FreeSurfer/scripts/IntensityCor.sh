@@ -41,7 +41,7 @@ tmpdir="`dirname $1`/IntensityCor"
 mkdir -p $tmpdir
 
 mri_convert "$in".mgz "$tmpdir"/orig.nii.gz -odt float
-mri_convert "$mask".mgz "$tmpdir"/mask.nii.gz
+mri_convert "$mask".mgz "$tmpdir"/mask.nii.gz --like  "$tmpdir"/orig.nii.gz
 
 fslmaths "$tmpdir"/orig -mas "$tmpdir"/mask "$tmpdir"/orig_brain
 fast -v -B -l $lowpass -o "$tmpdir"/fast "$tmpdir"/orig_brain
