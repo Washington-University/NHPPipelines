@@ -25,6 +25,8 @@ out=`echo $3 | sed -e 's/.mgz//'`
 species=$4
 
 lowpass=20
+scalefactor2=57
+sigma=$(echo $lowpass/2.35 | bc -l)
 
 if [ $SPECIES = Human ] ; then
   scalefactor=100
