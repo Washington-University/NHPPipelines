@@ -57,10 +57,12 @@ echo "Type: $type"
 tmpdir="`dirname $1`/IntensityCor"
 mkdir -p $tmpdir
 
+echo "Converting to nifti"
 mri_convert "$in".mgz "$tmpdir"/orig.nii.gz -odt float
 mri_convert "$mask".mgz "$tmpdir"/mask.nii.gz --like "$tmpdir"/orig.nii.gz
 
 fslmaths "$tmpdir"/orig -mas "$tmpdir"/mask "$tmpdir"/orig_brain
+
 echo "Run fast..."
 echo "fast -v -B -b -t $type -l $lowpass -o "$tmpdir"/fast "$tmpdir"/orig_brain"
 fast -v -B -b $type -l $lowpass -o "$tmpdir"/fast "$tmpdir"/orig_brain
@@ -78,7 +80,6 @@ elif (( type == 2 )) ; then
         fslmaths "$tmpdir"/orig_restore -mul $scalefactor2 -div $mean "$tmpdir"/orig_restore_scale -odt char
 
 fi
-
 echo "Converting to mgz"
 mri_convert -ns 1 -odt uchar "$tmpdir"/fast_restore_scale.nii.gz "$out".mgz --like "$in".mgz
 fslmaths "$tmpdir"/fast_restore_scale.nii.gz -mas "$tmpdir"/mask.nii.gz "$out"_brain.nii.gz
