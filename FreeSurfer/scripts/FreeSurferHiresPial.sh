@@ -61,8 +61,67 @@ SubjectID="$1"
 SubjectDIR="$2"
 T1wImage="$3" #T1w FreeSurfer Input (Full Resolution)
 T2wImage="$4" #T2w FreeSurfer Input (Full Resolution)
+T2wType="$5"
+SPECIES="$6"
 
-#Sigma controls smoothness of within grey matter tissue contrast field being removed
+source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
+source $HCPPIPEDIR/global/scripts/opts.shlib # Command line option functions
+log_SetToolName "FreeSurferHiresPial.sh"
+
+PipelineScripts=${HCPPIPEDIR_FS}
+
+# Species-dependent variables - Takuya Hayashi Sep 2016 - Oct 2019
+if  [[ $SPECIES =~ Macaque ]] ; then 
+
+	VARIABLESIGMA="10"
+	MAXTHICKNESS="-max 10"
+	PSIGMA="-psigma 5"
+	PA="-pa 25"			# average pial curvature (default 16)
+
+elif [[ $SPECIES =~ Marmoset ]] ; then
+
+	VARIABLESIGMA="8"
+	MAXTHICKNESS="-max 35" 		# maxthickness in mris_make_surface 1 & 2 using T2w
+	PSIGMA="-psigma 10"	   	# pial_sigma default=2. 10 is needed to inflate pial enough 
+	NSIGMA_ABOVE="-nsigma_above 10"	# default=3 7 to 10 is needed to inflate pial enough
+	PA="-pa 40"  			# average pial curvature (default 16)
+	ORIG_PIAL="-orig_pial pial.T2" 	# use initial pial in mris_make_surface 2 using T1w
+	MAXTHICKNESST1W="-max 50" 	# use maxthickness in mris_make_surface 2 using T1w
+
+elif [[ $SPECIES =~ Human ]] ; then
+
+	#Check if FreeSurfer is version 5.2.0 or not.  If it is not, use new -first_wm_peak mris_make_surfaces flag
+	if [ -z `cat ${FREESURFER_HOME}/build-stamp.txt | grep v5.2.0` ] ; then
+	 	VARIABLESIGMA="8"
+	else
+		VARIABLESIGMA="4"
+	fi
+	MAXTHICKNESS="-max 5"
+else
+	echo "ERROR: unknown SPECIES=$SPECIES"; 
+	exit 1;
+fi
+
+log_Msg "SPECIES: $SPECIES"
+log_Msg "VARIABLESIGMA: $VARIABLESIGMA"
+log_Msg "MAXTHICKNESS: $MAXTHICKNESS"
+log_Msg "PSIGMA: $PSIGMA"
+log_Msg "PA: $PA"
+log_Msg "NSIGMA_ABOVE: $NSIGMA_ABOVE"
+log_Msg "ORIG_PIAL: $ORIG_PIAL"
+log_Msg "MAXTHICKNESST1w: $MAXTHICKNESST1W"
+
+if [ "${T2wType}" = "T2w" ] ; then
+  T2wFlag="-T2dura"
+elif [ "${T2wType}" = "FLAIR" ] ; then
+  T2wFlag="-FLAIR"
+else
+  #echo "Unrecognized T2wType, assuming T2w"
+  #T2wFlag="-T2dura"
+  T2wFlag="NONE"
+fi
+
+log_Msg "T2wFlag: $T2wFlag"
 Sigma="5" #in mm
 
 export SUBJECTS_DIR="$SubjectDIR"
@@ -76,11 +135,11 @@ hires="$mridir"/T1w_hires.nii.gz
 T2="$mridir"/T2w_hires.norm.mgz
 Ratio="$mridir"/T1wDividedByT2w_sqrt.nii.gz
 
-#Normalize T1w and T2w images for the benefit of mris_make_surfaces
+log_Msg "Normalizing T1w_hires and T2w_hires"
 mri_convert "$mridir"/wm.hires.mgz "$mridir"/wm.hires.nii.gz
-fslmaths "$mridir"/wm.hires.nii.gz -thr 110 -uthr 110 "$mridir"/wm.hires.nii.gz
-wmMeanT1=`fslstats "$mridir"/T1w_hires.nii.gz -k "$mridir"/wm.hires.nii.gz -M`
-fslmaths "$mridir"/T1w_hires.nii.gz -div $wmMeanT1 -mul 110 "$mridir"/T1w_hires.norm.nii.gz
+fslmaths "$mridir"/wm.hires.nii.gz -thr 110 -uthr 110 "$mridir"/wm.hires.nii.gz 
+wmMean=`fslstats "$mridir"/T1w_hires.nii.gz -k "$mridir"/wm.hires.nii.gz -M`
+fslmaths "$mridir"/T1w_hires.nii.gz -div $wmMean -mul 110 "$mridir"/T1w_hires.norm.nii.gz
 mri_convert "$mridir"/T1w_hires.norm.nii.gz "$mridir"/T1w_hires.norm.mgz
 
 if [ ! "${T2wImage}" = "NONE" ] ; then
