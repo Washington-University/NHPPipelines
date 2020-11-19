@@ -177,7 +177,7 @@ case $DistortionCorrection in
         echo " "
         echo " "
 
-        ${HCPPIPEDIR_Global}/SiemensFieldMapPreprocessingAll.sh \
+        ${HCPPIPEDIR_Global}/SiemensFieldMapPreprocessingAllNHP.sh \
             --workingdir=${WD}/FieldMap \
             --fmapmag=${MagnitudeInputName} \
             --fmapphase=${PhaseInputName} \
