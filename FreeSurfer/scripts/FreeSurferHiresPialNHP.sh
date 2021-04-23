@@ -105,7 +105,7 @@ mri_convert "$mridir"/T2w_hires.norm.nii.gz "$mridir"/T2w_hires.norm.mgz
 log_Msg "mris_make_surface 1 using T1w hires"
 
 mris_make_surfaces -variablesigma $VARIABLESIGMA $PSIGMA $MAXTHICKNESS $MINGRAY $MAXGRAY -white NOWRITE -aseg aseg.hires -orig white.deformed -filled filled.hires -wm wm.hires -sdir $SubjectDIR -T1 $T1wHires $SubjectID lh
-mris_make_surfaces -variablesigma $VARIABLESIGMA $PSIGMA $MfTAXTHICKNESS $MINGRAY $MAXGRAY -white NOWRITE -aseg aseg.hires -orig white.deformed -filled filled.hires -wm wm.hires -sdir $SubjectDIR -T1 $T1wHires $SubjectID rh
+mris_make_surfaces -variablesigma $VARIABLESIGMA $PSIGMA $MAXTHICKNESS $MINGRAY $MAXGRAY -white NOWRITE -aseg aseg.hires -orig white.deformed -filled filled.hires -wm wm.hires -sdir $SubjectDIR -T1 $T1wHires $SubjectID rh
 
 cp $SubjectDIR/$SubjectID/surf/lh.pial $SubjectDIR/$SubjectID/surf/lh.pial.preT2
 cp $SubjectDIR/$SubjectID/surf/rh.pial $SubjectDIR/$SubjectID/surf/rh.pial.preT2
