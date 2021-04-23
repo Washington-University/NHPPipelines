@@ -313,6 +313,7 @@ function runNormalize2 () {
 		applywarp -i "$GCAdir"/wmskeleton.nii.gz -r ../../T1w_acpc_dc_restore.nii.gz -w \
 		../../../MNINonLinear/xfms/standard2acpc_dc.nii.gz -o wmskeleton.nii.gz --interp=nn
 		"$PipelineScripts"/MakeDimto1mm.sh Marmoset wmskeleton.nii.gz
+		fslmaths wmskeleton_1mm.nii.gz -thr 0.2 -bin -mul 255 wmskeleton_1mm.nii.gz
 		mri_convert -ns 1 -odt uchar wmskeleton_1mm.nii.gz wmskeleton_1mm_conform.nii.gz --conform
 		fslmaths wmskeleton_1mm_conform.nii.gz -mul 110 -max wm.nii.gz wm.nii.gz
 	fi
@@ -326,7 +327,7 @@ function runNormalize2 () {
 		fi
 		fslmaths wmlesion.nii.gz -thr 0 -bin wmlesion_bin.nii.gz # lesion threshold by probability
 		"$PipelineScripts"/MakeDimto1mm.sh $SPECIES wmlesion_bin.nii.gz nn
-		fslmaths wmskeleton_1mm.nii.gz -thr 0.2 -bin -mul 255 wmskeleton_1mm.nii.gz
+		fslmaths wmlesion_bin_1mm.nii.gz -thr 0.2 -bin -mul 255 wmlesion_bin_1mm.nii.gz
 		mri_convert -ns 1 -odt uchar wmlesion_bin_1mm.nii.gz wmlesion_bin_1mm_conform.nii.gz --conform
 		fslmaths wmlesion_bin_1mm_conform.nii.gz -mul 110 -max wm.nii.gz wm.nii.gz
 	fi
