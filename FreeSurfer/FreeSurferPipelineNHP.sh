@@ -358,7 +358,7 @@ function runFSwhite () {
 	log_Msg "High resolution white matter and fine tune T2w to T1w registration"
 	if [[ ! $SPECIES =~ Human ]] ; then
 		# Modified HiresWhite - Takuya Hayashi for bias-correction of T1w, Jan 2017
-		"$PipelineScripts"/FreeSurferHiresWhite_RIKEN.sh "$SubjectID" "$SubjectDIR" "$T1wImageFile"_1mm.nii.gz \
+		"$PipelineScripts"/FreeSurferHiresWhiteNHP.sh "$SubjectID" "$SubjectDIR" "$T1wImageFile"_1mm.nii.gz \
 		"$T2wImageFile"_1mm.nii.gz $SPECIES 
 	else
 		"$PipelineScripts"/FreeSurferHiresWhite.sh "$SubjectID" "$SubjectDIR" "$T1wImage" "$T2wImage"
@@ -411,7 +411,7 @@ function runFSpial () {
 	log_Msg "High resolution pial surface"
 	if [[ ! $SPECIES =~ Human ]] ; then
 		# Modified HiresPial - Takuya Hayashi for bias-correction of T2w, Jan 2017
-		"$PipelineScripts"/FreeSurferHiresPial_RIKEN.sh "$SubjectID" "$SubjectDIR" "$T1wImageFile"_1mm.nii.gz \
+		"$PipelineScripts"/FreeSurferHiresPialNHP.sh "$SubjectID" "$SubjectDIR" "$T1wImageFile"_1mm.nii.gz \
 		"$T2wImageFile"_1mm.nii.gz "$T2wFlag" "$SPECIES"
 	else
 		"$PipelineScripts"/FreeSurferHiresPial.sh "$SubjectID" "$SubjectDIR" "$T1wImage" "$T2wImage" "$MaxThickness"
