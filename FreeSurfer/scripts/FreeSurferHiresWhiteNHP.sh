@@ -56,7 +56,7 @@ cp $SubjectDIR/$SubjectID/surf/rh.white $SubjectDIR/$SubjectID/surf/rh.white.pre
 # in the wm for the mri_normalize call that comes next
 
 # map the various lowres volumes that mris_make_surfaces needs into the hires coords
-for v in wm.mgz filled.mgz brain.mgz aseg.mgz ; do
+for v in wm.mgz filled.mgz norm.mgz brain.mgz aseg.mgz ; do
   basename=`echo $v | cut -d "." -f 1`
   mri_convert -rl "$mridir"/T1w_hires.nii.gz -rt nearest $mridir/$v $mridir/$basename.hires.mgz
 done
@@ -78,10 +78,12 @@ if [ "$SPECIES" = Human ] ; then
 	mri_normalize -erode 1 -f $SubjectDIR/$SubjectID/scripts/control.hires.dat -min_dist 1 -surface "$surfdir"/lh.white.hires identity.nofile -surface "$surfdir"/rh.white.hires identity.nofile $mridir/T1w_hires.masked.mgz $mridir/T1w_hires.masked.norm.mgz
 
 else
-	# Marmoset T1w needs to be further bias-corrected with mri_ca_normalize and aseg-based mri_normalize, thus use brain.hires instead of T1w_hires
-	# - Takuya Hayashi Dec 2017
+	# TH: multi-step bias-corrected T1w requried for NHP
+	#   nu.mgz: IntensityCor (using FAST)
+	#   T1.mgz: +'-normalization'
+	#   norm.mgz: +'-canorm'
+	#   brain.mgz: +'-normalization2'
 	cp $mridir/brain.hires.mgz $mridir/T1w_hires.masked.norm.mgz
-
 fi
 
 #Check if FreeSurfer is version 5.2.0 or not.  If it is not, use new -first_wm_peak mris_make_surfaces flag
