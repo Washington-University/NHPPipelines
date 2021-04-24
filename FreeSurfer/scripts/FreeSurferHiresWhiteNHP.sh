@@ -56,7 +56,7 @@ cp $SubjectDIR/$SubjectID/surf/rh.white $SubjectDIR/$SubjectID/surf/rh.white.pre
 # in the wm for the mri_normalize call that comes next
 
 # map the various lowres volumes that mris_make_surfaces needs into the hires coords
-for v in wm.mgz filled.mgz norm.mgz brain.mgz aseg.mgz ; do
+for v in nu.mgz T1.mgz wm.mgz filled.mgz norm.mgz brain.mgz aseg.mgz ; do
   basename=`echo $v | cut -d "." -f 1`
   mri_convert -rl "$mridir"/T1w_hires.nii.gz -rt nearest $mridir/$v $mridir/$basename.hires.mgz
 done
@@ -79,10 +79,10 @@ if [ "$SPECIES" = Human ] ; then
 
 else
 	# TH: multi-step bias-corrected T1w requried for NHP
-	#   nu.mgz: IntensityCor (using FAST)
-	#   T1.mgz: +'-normalization'
-	#   norm.mgz: +'-canorm'
-	#   brain.mgz: +'-normalization2'
+	#   nu.hires.mgz: +'IntensityCor' (using FAST)
+	#   T1.hires.mgz: +'-normalization'
+	#   norm.hires.mgz: +'-canorm'
+	#   brain.hires.mgz: +'-normalization2'
 	cp $mridir/brain.hires.mgz $mridir/T1w_hires.masked.norm.mgz
 fi
 
