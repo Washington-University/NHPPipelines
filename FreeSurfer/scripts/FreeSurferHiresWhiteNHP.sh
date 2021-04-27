@@ -79,6 +79,7 @@ if [ "$SPECIES" = Human ] ; then
 
 else
 	# TH: multi-step bias-corrected T1w requried for NHP
+	#   T1w_hires.masked.mgz: 'T1w+T2w biasfield correction'
 	#   nu.hires.mgz: +'IntensityCor' (using FAST)
 	#   T1.hires.mgz: +'-normalization'
 	#   norm.hires.mgz: +'-canorm'
