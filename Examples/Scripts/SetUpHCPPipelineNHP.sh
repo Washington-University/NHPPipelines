@@ -7,13 +7,16 @@ echo "This script must be SOURCED to correctly setup the environment prior to ru
 #. ${FSLDIR}/etc/fslconf/fsl.sh
 
 # Set up FreeSurfer (if not already done so in the running environment)
-export FREESURFER_HOME=/usr/local/freesurfer-HCP
+#export FREESURFER_HOME=/usr/local/freesurfer-HCP
+export FREESURFER_HOME=/mnt_host/freesurfer-HCP
 . ${FREESURFER_HOME}/SetUpFreeSurfer.sh > /dev/null 2>&1
 
-export HCPPIPEDIR=/mnt/pub/devel/NHPHCPPipeline
+#export HCPPIPEDIR=/mnt/pub/devel/NHPHCPPipeline
+export HCPPIPEDIR=/mnt_host
 
 #export CARET7DIR=/mnt/devel/devel/workbench/bin_linux64
-export CARET7DIR=/usr/bin
+#export CARET7DIR=/usr/bin
+export CARET7DIR=/opt/workbench/bin_linux64
 
 # ApplyHandClassification
 export MATLAB_HOME=`which matlab | sed 's/bin\/matlab//g'`
