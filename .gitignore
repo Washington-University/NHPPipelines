@@ -14,3 +14,7 @@
 
 # nfs temporaries
 .nfs*
+
+# project directories
+projects/*
+freesurfer-NHP/*

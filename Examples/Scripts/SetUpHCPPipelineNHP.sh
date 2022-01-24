@@ -8,7 +8,7 @@ echo "This script must be SOURCED to correctly setup the environment prior to ru
 
 # Set up FreeSurfer (if not already done so in the running environment)
 #export FREESURFER_HOME=/usr/local/freesurfer-HCP
-export FREESURFER_HOME=/mnt_host/freesurfer-HCP
+export FREESURFER_HOME=/mnt_host/freesurfer-NHP
 . ${FREESURFER_HOME}/SetUpFreeSurfer.sh > /dev/null 2>&1
 
 #export HCPPIPEDIR=/mnt/pub/devel/NHPHCPPipeline

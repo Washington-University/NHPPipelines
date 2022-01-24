@@ -315,7 +315,7 @@ function runNormalize2 () {
 		"$PipelineScripts"/MakeDimto1mm.sh Marmoset wmskeleton.nii.gz
 		fslmaths wmskeleton_1mm.nii.gz -thr 0.2 -bin -mul 255 wmskeleton_1mm.nii.gz
 		mri_convert -ns 1 -odt uchar wmskeleton_1mm.nii.gz wmskeleton_1mm_conform.nii.gz --conform
-		fslmaths wmskeleton_1mm_conform.nii.gz -mul 110 -max wm.nii.gz wm.nii.gz
+		fslmaths wmskeleton_1mm_conform.nii.gz -max wm.nii.gz wm.nii.gz
 	fi
 	## paste wm lesion when needed
 	if (( $(imtest ../../../MNINonLinear/WMLesion/wmlesion.nii.gz) == 1 || $(imtest ../../../T1w/WMLesion/wmlesion.nii.gz) == 1 )) ; then
@@ -329,7 +329,7 @@ function runNormalize2 () {
 		"$PipelineScripts"/MakeDimto1mm.sh $SPECIES wmlesion_bin.nii.gz nn
 		fslmaths wmlesion_bin_1mm.nii.gz -thr 0.2 -bin -mul 255 wmlesion_bin_1mm.nii.gz
 		mri_convert -ns 1 -odt uchar wmlesion_bin_1mm.nii.gz wmlesion_bin_1mm_conform.nii.gz --conform
-		fslmaths wmlesion_bin_1mm_conform.nii.gz -mul 110 -max wm.nii.gz wm.nii.gz
+		fslmaths wmlesion_bin_1mm_conform.nii.gz -max wm.nii.gz wm.nii.gz
 	fi
 	## convert back to mgz format 
 	mri_convert -ns 1 -odt uchar wm.nii.gz wm.mgz  # save in 8-bit
