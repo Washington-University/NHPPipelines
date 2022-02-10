@@ -1,7 +1,7 @@
 #!/bin/bash 
 
 if [ "$SPECIES" = "" ] ; then echo "ERROR: please export SPECIES first, Macaque or Marmoset"; exit 1;fi
-EnvironmentScript="/mnt/FAI1/devel/NHPHCPPipeline/Examples/Scripts/SetUpHCPPipelineNHP.sh"
+EnvironmentScript="${HCPPIPEDIR}/Examples/Scripts/SetUpHCPPipelineNHP.sh"
 . ${EnvironmentScript}
 
 StudyFolder=$1;shift
@@ -37,7 +37,7 @@ for Subject in $Subjlist ; do
       --freesurferlabels="$FreeSurferLabels" \
       --refmyelinmaps="$ReferenceMyelinMaps" \
       --regname="$RegName" \
-      --printcom=$PRINTCOM
+#      --printcom=$PRINTCOM
 #      --mcsigma="$CorrectionSigma" \
 
   # The following lines are used for interactive debugging to set the positional parameters: $1 $2 $3 ...
