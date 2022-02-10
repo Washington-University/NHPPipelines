@@ -43,7 +43,8 @@ OS="`lsb_release -a | grep Distributor | awk '{print $3}'`"
 if [  "$OS" = "CentOS" ] ; then
   export MSMBINDIR=/mnt/pub/devel/MSM/MSM_HOCR_v2/Centos
 elif [  "$OS" = "Ubuntu" ] ; then
-  export MSMBINDIR=/mnt/devel/devel/MSM/MSM_HOCR_v2/Ubuntu
+  #export MSMBINDIR=/mnt/devel/devel/MSM/MSM_HOCR_v2/Ubuntu
+  export MSMBINDIR=/usr/share/fsl/6.0/bin/
 fi
 export MSMCONFIGDIR=$HCPPIPEDIR/MSMConfig
 export FixDir=/mnt/pub/devel/bcil/fix1.06
