@@ -7,16 +7,13 @@ echo "This script must be SOURCED to correctly setup the environment prior to ru
 #. ${FSLDIR}/etc/fslconf/fsl.sh
 
 # Set up FreeSurfer (if not already done so in the running environment)
-#export FREESURFER_HOME=/usr/local/freesurfer-HCP
-export FREESURFER_HOME=/mnt_host/freesurfer-NHP
+export FREESURFER_HOME=/usr/local/freesurfer-HCP
 . ${FREESURFER_HOME}/SetUpFreeSurfer.sh > /dev/null 2>&1
 
-#export HCPPIPEDIR=/mnt/pub/devel/NHPHCPPipeline
-export HCPPIPEDIR=/mnt_host
+export HCPPIPEDIR=/mnt/pub/devel/NHPHCPPipeline
 
 #export CARET7DIR=/mnt/devel/devel/workbench/bin_linux64
-#export CARET7DIR=/usr/bin
-export CARET7DIR=/opt/workbench/bin_linux64
+export CARET7DIR=/usr/bin
 
 # ApplyHandClassification
 export MATLAB_HOME=`which matlab | sed 's/bin\/matlab//g'`
@@ -43,8 +40,7 @@ OS="`lsb_release -a | grep Distributor | awk '{print $3}'`"
 if [  "$OS" = "CentOS" ] ; then
   export MSMBINDIR=/mnt/pub/devel/MSM/MSM_HOCR_v2/Centos
 elif [  "$OS" = "Ubuntu" ] ; then
-  #export MSMBINDIR=/mnt/devel/devel/MSM/MSM_HOCR_v2/Ubuntu
-  export MSMBINDIR=/usr/share/fsl/6.0/bin/
+  export MSMBINDIR=/mnt/devel/devel/MSM/MSM_HOCR_v2/Ubuntu
 fi
 export MSMCONFIGDIR=$HCPPIPEDIR/MSMConfig
 export FixDir=/mnt/pub/devel/bcil/fix1.06
