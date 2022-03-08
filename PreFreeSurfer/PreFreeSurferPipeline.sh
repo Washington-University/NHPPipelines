@@ -505,14 +505,17 @@ if [ "$CustomBrain" = "NONE" ] ; then
           TXwImage=${T1wImage}
           TXwTemplate=${T1wTemplate}
           TXwTemplate2mm=${T1wTemplate2mm}
+          TXwTemplateBrain=${T1wTemplateBrain}
       else
           TXwInputImages="${T2wInputImages}"
           TXwFolder=${T2wFolder}
           TXwImage=${T2wImage}
           TXwTemplate=${T2wTemplate}
           TXwTemplate2mm=${T2wTemplate2mm}
+        	TXwTemplateBrain=${T2wTemplateBrain}
       fi
       OutputTXwImageSTRING=""
+      OutputTXwBrainImageSTRING=""
 
       # skip modality if no image
 
@@ -765,12 +768,12 @@ if [ "$CustomBrain" = "NONE" ] ; then
     fslmaths ${OutputT2wImage}_restore -mas ${T1wFolder}/${T1wImage}_acpc_dc_brain ${OutputT2wImage}_restore_brain
   fi
 
-# -- Are we using a custom mask?
+# -- Are we using a custom mask in acpc space?
 
-elif [ "$CustomBrain" = "MASK" ] ; then
+elif [ "$CustomBrain" = "MASK_acpc" ] ; then
 
   log_Msg "Skipping all the steps to Atlas registration, applying custom mask."
-  verbose_red_echo "---> Applying custom mask"
+  verbose_red_echo "---> Applying custom mask in acpc space"
 
   OutputT1wImage=${T1wFolder}/${T1wImage}_acpc_dc
   fslmaths ${OutputT1wImage}_restore -mas ${T1wFolder}/custom_acpc_dc_restore_mask ${OutputT1wImage}_restore_brain
@@ -779,6 +782,64 @@ elif [ "$CustomBrain" = "MASK" ] ; then
     OutputT2wImage=${T1wFolder}/${T2wImage}_acpc_dc
     fslmaths ${OutputT2wImage}_restore -mas ${T1wFolder}/custom_acpc_dc_restore_mask ${OutputT2wImage}_restore_brain
   fi
+# -- Are we using a custom mask in orig space?
+
+elif [ "$CustomBrain" = "MASK_orig" ] ; then
+
+  log_Msg "Running all the steps to Atlas registration, applying custom mask in orig space."
+  verbose_red_echo "---> Applying custom mask in orig space"
+  ####
+  ${RUN} ${PipelineScripts}/ACPCAlignment.sh \
+	--workingdir=${TXwFolder}/ACPCAlignment \
+	--in=${TXwFolder}/${TXwImageBrain} \
+	--ref=${TXwTemplateBrain} \
+	--out=${TXwFolder}/${TXwImage}_acpc \
+	--omat=${TXwFolder}/xfms/acpc.mat \
+	--brainsize=${BrainSize} \
+	--identmat=${IdentMat}
+#################################### Modified until here. Oct 24 2015, Takuya Hayashi
+
+#### Brain Extraction (FNIRT-based Masking) ####
+#################################### Modified from here. June 18 2016, Takuya Hayashi
+  if [ "$BrainExtractionFnirtBased" = TRUE ] ; then
+    mkdir -p ${TXwFolder}/BrainExtraction_FNIRTbased
+#    ${RUN} ${PipelineScripts}/BrainExtraction_FNIRTbased.sh \
+#	--workingdir=${TXwFolder}/BrainExtraction_FNIRTbased \
+#	--in=${TXwFolder}/${TXwImage}_acpc \
+#	--ref=${TXwTemplate} \
+#	--refmask=${TemplateMask} \
+#	--ref2mm=${TXwTemplate2mm} \
+#	--ref2mmmask=${Template2mmMask} \
+#	--outbrain=${TXwFolder}/${TXwImage}_acpc_brain \
+#	--outbrainmask=${TXwFolder}/${TXwImage}_acpc_brain_mask \
+#	--fnirtconfig=${FNIRTConfig}
+
+# Following command expects an additional input, ${TXwFolder}/${TXwImage}_acpc_brain
+    ${RUN} ${PipelineScripts}/BrainExtraction_FNIRTbased_RIKEN.sh \
+	--workingdir=${TXwFolder}/BrainExtraction_FNIRTbased \
+	--in=${TXwFolder}/${TXwImage}_acpc \
+	--ref=${TXwTemplateBrain} \
+	--refmask=${TemplateMask} \
+	--ref2mm=${TXwTemplate2mm} \
+	--ref2mmmask=${Template2mmMask} \
+	--outbrain=${TXwFolder}/${TXwImage}_acpc_brain \
+	--outbrainmask=${TXwFolder}/${TXwImage}_acpc_brain_mask \
+	--fnirtconfig=${FNIRTConfig} \
+        --identmat=${IdentMat}
+  ####
+  if [[ $(imtest ${TXwFolder}/${TXwImage}${i}_gdc_brain) = 1 ]] ; then
+    imrm ${TXwFolder}/${TXwImage}${i}_gdc_brain
+  fi
+  # ues custom brain mask in orig space $(remove_ext $Image)_brain
+  ${RUN} ${FSLDIR}/bin/fslreorient2std $(remove_ext $Image)_brain ${wdir}/${TXwImage}${i}_brain
+  log_Msg "Found $(remove_ext $Image)_brain"
+  ${RUN} ${GlobalScripts}/GradientDistortionUnwarp.sh \
+  --workingdir=${wdir} \
+  --coeffs=$GradientDistortionCoeffs \
+  --in=${wdir}/${TXwImage}${i}_brain \
+  --out=${TXwFolder}/${TXwImage}${i}_gdc_brain \
+  --owarp=${TXwFolder}/xfms/${TXwImage}${i}_gdc_warp
+  OutputTXwBrainImageSTRING="${OutputTXwBrainImageSTRING}${TXwFolder}/${TXwImage}${i}_gdc_brain "
 
 # -- Then we are using existing images
 
