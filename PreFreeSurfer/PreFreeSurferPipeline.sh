@@ -351,6 +351,7 @@ TopupConfig=`opts_GetOpt1 "--topupconfig" $@`
 BiasFieldSmoothingSigma=`opts_GetOpt1 "--bfsigma" $@`
 CustomBrain=`opts_GetOpt1 "--custombrain" $@`
 ProcessingMode=`opts_GetOpt1 "--processing-mode" $@`
+BrainExtractionFnirtBased=`opts_GetOpt1 "--brainextractionfnirt" $@`   # TRUE or NONE, added by Takuya Hayashi 2016/06/18
 
 # NOTE: UseJacobian only affects whether the spin echo field maps 
 # get intensity modulated by the gradient distortion correction warpfield 
@@ -447,6 +448,7 @@ T2wInputImages=`echo ${T2wInputImages} | sed 's/@/ /g'`
 # -- Are T2w images available
 
 if [ "${T2wInputImages}" = "NONE" ] ; then
+  T2wFolder="NONE"
   T2wFolder_T2wImageWithPath_acpc="NONE"
   T2wFolder_T2wImageWithPath_acpc_brain="NONE"
   T1wFolder_T2wImageWithPath_acpc_dc="NONE"
@@ -711,7 +713,6 @@ if [ "$CustomBrain" = "NONE" ] ; then
 
     log_Msg "Performing Bias Field Correction using T1w image only"
 
-<<<<<<< HEAD
     ${RUN} ${HCPPIPEDIR_PreFS}/BiasFieldCorrection_T1wOnly.sh \
       --workingdir=${T1wFolder}/BiasFieldCorrection_T1wOnly \
       --T1im=${T1wFolder}/${T1wImage}_acpc_dc \
@@ -720,64 +721,6 @@ if [ "$CustomBrain" = "NONE" ] ; then
       --oT1im=${T1wFolder}/${T1wImage}_acpc_dc_restore \
       --oT1brain=${T1wFolder}/${T1wImage}_acpc_dc_restore_brain \
       ${BiasFieldSmoothingSigma}
-=======
-        ${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wDistortionCorrectAndReg.sh \
-            --workingdir=${wdir} \
-            --t1=${T1wFolder}/${T1wImage}_acpc \
-            --t1brain=${T1wFolder}/${T1wImage}_acpc_brain \
-            --t2=${T2wFolder}/${T2wImage}_acpc \
-            --t2brain=${T2wFolder}/${T2wImage}_acpc_brain \
-            --fmapmag=${MagnitudeInputName} \
-            --fmapphase=${PhaseInputName} \
-            --fmapgeneralelectric=${GEB0InputName} \
-            --echodiff=${TE} \
-            --SEPhaseNeg=${SpinEchoPhaseEncodeNegative} \
-            --SEPhasePos=${SpinEchoPhaseEncodePositive} \
-            --seechospacing=${SEEchoSpacing} \
-            --seunwarpdir=${SEUnwarpDir} \
-            --t1sampspacing=${T1wSampleSpacing} \
-            --t2sampspacing=${T2wSampleSpacing} \
-            --unwarpdir=${UnwarpDir} \
-            --ot1=${T1wFolder}/${T1wImage}_acpc_dc \
-            --ot1brain=${T1wFolder}/${T1wImage}_acpc_dc_brain \
-            --ot1warp=${T1wFolder}/xfms/${T1wImage}_dc \
-            --ot2=${T1wFolder}/${T2wImage}_acpc_dc \
-            --ot2warp=${T1wFolder}/xfms/${T2wImage}_reg_dc \
-            --method=${AvgrdcSTRING} \
-            --topupconfig=${TopupConfig} \
-            --gdcoeffs=${GradientDistortionCoeffs} \
-            --usejacobian=${UseJacobian}
-
-        ;;
-
-    *) 
-
-        log_Msg "NOT PERFORMING READOUT DISTORTION CORRECTION"
-        wdir=${T2wFolder}/T2wToT1wReg
-        if [ -e ${wdir} ] ; then
-            # DO NOT change the following line to "rm -r ${wdir}" because the
-            # chances of something going wrong with that are much higher, and 
-            # rm -r always needs to be treated with the utmost caution
-            rm -r ${T2wFolder}/T2wToT1wReg
-        fi
-
-        log_Msg "mkdir -p ${wdir}"
-        mkdir -p ${wdir}
-
-        ${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wReg.sh \
-            ${wdir} \
-            ${T1wFolder}/${T1wImage}_acpc \
-            ${T1wFolder}/${T1wImage}_acpc_brain \
-            ${T2wFolder}/${T2wImage}_acpc \
-            ${T2wFolder}/${T2wImage}_acpc_brain \
-            ${T1wFolder}/${T1wImage}_acpc_dc \
-            ${T1wFolder}/${T1wImage}_acpc_dc_brain \
-            ${T1wFolder}/xfms/${T1wImage}_dc \
-            ${T1wFolder}/${T2wImage}_acpc_dc \
-            ${T1wFolder}/xfms/${T2wImage}_reg_dc
-
-esac
->>>>>>> Use EchoSpacing rather than DwellTime as parameter name, consistent with changes already made to the fMRI scripts
 
   fi
 
@@ -892,4 +835,3 @@ ${RUN} ${HCPPIPEDIR_PreFS}/AtlasRegistrationToMNI152_FLIRTandFNIRT.sh \
   --fnirtconfig=${FNIRTConfig} 
 
 log_Msg "Completed!"
-
