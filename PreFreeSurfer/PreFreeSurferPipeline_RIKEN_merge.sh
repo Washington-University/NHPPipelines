@@ -323,37 +323,38 @@ opts_ShowVersionIfRequested $@
 #    T1w/BiasFieldCorrection_sqrtT1wXT1w 
 #    MNINonLinear
 
-StudyFolder=`getopt1 "--path" $@`  # "$1" #Path to subject's data folder
-Subject=`getopt1 "--subject" $@`  # "$2" #SubjectID
-T1wInputImages=`getopt1 "--t1" $@`  # "$3" #T1w1@T1w2@etc..
-T2wInputImages=`getopt1 "--t2" $@`  # "$4" #T2w1@T2w2@etc..
-T1wTemplate=`getopt1 "--t1template" $@`  # "$5" #MNI template
-T1wTemplateBrain=`getopt1 "--t1templatebrain" $@`  # "$6" #Brain extracted MNI T1wTemphostlate
-T1wTemplate2mm=`getopt1 "--t1template2mm" $@`  # "$7" #MNI2mm T1wTemplate
-T2wTemplate=`getopt1 "--t2template" $@`  # "${8}" #MNI T2wTemplate
-T2wTemplateBrain=`getopt1 "--t2templatebrain" $@`  # "$9" #Brain extracted MNI T2wTemplate
-T2wTemplate2mm=`getopt1 "--t2template2mm" $@`  # "${10}" #MNI2mm T2wTemplate
-TemplateMask=`getopt1 "--templatemask" $@`  # "${11}" #Brain mask MNI Template
-Template2mmMask=`getopt1 "--template2mmmask" $@`  # "${12}" #Brain mask MNI2mm Template 
-BrainSize=`getopt1 "--brainsize" $@`  # "${13}" #StandardFOV mask for averaging structurals
-FNIRTConfig=`getopt1 "--fnirtconfig" $@`  # "${14}" #FNIRT 2mm T1w Config
-MagnitudeInputName=`getopt1 "--fmapmag" $@`  # "${16}" #Expects 4D magitude volume with two 3D timepoints
-PhaseInputName=`getopt1 "--fmapphase" $@`  # "${17}" #Expects 3D phase difference volume
-TE=`getopt1 "--echodiff" $@`  # "${18}" #delta TE for field map
-SpinEchoPhaseEncodeNegative=`getopt1 "--SEPhaseNeg" $@`
-SpinEchoPhaseEncodePositive=`getopt1 "--SEPhasePos" $@`
+StudyFolder=`opts_GetOpt1 "--path" $@`
+Subject=`opts_GetOpt1 "--subject" $@`
+T1wInputImages=`opts_GetOpt1 "--t1" $@`
+T2wInputImages=`opts_GetOpt1 "--t2" $@`
+T1wTemplate=`opts_GetOpt1 "--t1template" $@`
+T1wTemplateBrain=`opts_GetOpt1 "--t1templatebrain" $@`
+T1wTemplate2mm=`opts_GetOpt1 "--t1template2mm" $@`
+T2wTemplate=`opts_GetOpt1 "--t2template" $@`
+T2wTemplateBrain=`opts_GetOpt1 "--t2templatebrain" $@`  # This file/argument not used anywhere
+T2wTemplate2mm=`opts_GetOpt1 "--t2template2mm" $@`
+TemplateMask=`opts_GetOpt1 "--templatemask" $@`
+Template2mmMask=`opts_GetOpt1 "--template2mmmask" $@`
+BrainSize=`opts_GetOpt1 "--brainsize" $@`
+FNIRTConfig=`opts_GetOpt1 "--fnirtconfig" $@`
+MagnitudeInputName=`opts_GetOpt1 "--fmapmag" $@`
+PhaseInputName=`opts_GetOpt1 "--fmapphase" $@`
+GEB0InputName=`opts_GetOpt1 "--fmapgeneralelectric" $@`
+TE=`opts_GetOpt1 "--echodiff" $@`
+SpinEchoPhaseEncodeNegative=`opts_GetOpt1 "--SEPhaseNeg" $@`
+SpinEchoPhaseEncodePositive=`opts_GetOpt1 "--SEPhasePos" $@`
 DwellTime=`getopt1 "--echospacing" $@`
-SEUnwarpDir=`getopt1 "--seunwarpdir" $@`
-T1wSampleSpacing=`getopt1 "--t1samplespacing" $@`  # "${19}" #DICOM field (0019,1018)
-T2wSampleSpacing=`getopt1 "--t2samplespacing" $@`  # "${20}" #DICOM field (0019,1018) 
-UnwarpDir=`getopt1 "--unwarpdir" $@`  # "${21}" #z appears to be best
-GradientDistortionCoeffs=`getopt1 "--gdcoeffs" $@`  # "${25}" #Select correct coeffs for scanner or "NONE" to turn off
-AvgrdcSTRING=`getopt1 "--avgrdcmethod" $@`  # "${26}" #Averaging and readout distortion correction methods: "NONE" = average any repeats with no readout correction "FIELDMAP" = average any repeats and use field map for readout correction "TOPUP" = average and distortion correct at the same time with topup/applytopup only works for 2 images currently
-TopupConfig=`getopt1 "--topupconfig" $@`  # "${27}" #Config for topup or "NONE" if not used
-BiasFieldSmoothingSigma=`getopt1 "--bfsigma" $@`  # "$9"
+SEUnwarpDir=`opts_GetOpt1 "--seunwarpdir" $@`
+T1wSampleSpacing=`opts_GetOpt1 "--t1samplespacing" $@`
+T2wSampleSpacing=`opts_GetOpt1 "--t2samplespacing" $@`
+UnwarpDir=`opts_GetOpt1 "--unwarpdir" $@`
+GradientDistortionCoeffs=`opts_GetOpt1 "--gdcoeffs" $@`
+AvgrdcSTRING=`opts_GetOpt1 "--avgrdcmethod" $@`
+TopupConfig=`opts_GetOpt1 "--topupconfig" $@`
+BiasFieldSmoothingSigma=`opts_GetOpt1 "--bfsigma" $@`
 RUN=`getopt1 "--printcom" $@`  # use ="echo" for just printing everything and not running the commands (default is to run)
 IdentMat=`getopt1 "--identmat" $@` # Do regisration in ACPCAlignment, T2wToT1Reg and AtlasRegistration (NONE) or not (TRUE)
-BrainExtractionFnirtBased=`getopt1 "--brainextractionfnirt" $@`   # TRUE or NONE, added by Takuya Hayashi 2016/06/18
+BrainExtractionFnirtBased=`opts_GetOpt1 "--brainextractionfnirt" $@`   # TRUE or NONE, added by Takuya Hayashi 2016/06/18
 Defacing=`getopt1 "--defacing" $@`   # TRUE or NONE by TH Jan 2020
 
 log_Msg "StudyFolder: $StudyFolder"
@@ -385,6 +386,10 @@ source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
 source $HCPPIPEDIR/global/scripts/opts.shlib # Command line option functions
 
 ################################################## OPTION PARSING #####################################################
+
+# ------------------------------------------------------------------------------
+#  Show Command Line Options
+# ------------------------------------------------------------------------------
 
 # Input Variables
 StudyFolder=`getopt1 "--path" $@`  # "$1" #Path to subject's data folder
@@ -439,6 +444,10 @@ T1wFolder=${StudyFolder}/${Subject}/${T1wFolder}
 T2wFolder=${StudyFolder}/${Subject}/${T2wFolder} 
 AtlasSpaceFolder=${StudyFolder}/${Subject}/${AtlasSpaceFolder}
 
+log_Msg "T1wFolder: $T1wFolder"
+log_Msg "T2wFolder: $T2wFolder"
+log_Msg "AtlasFolder: $AtlasSpaceFolder"
+
 # Unpack List of Images
 T1wInputImages=`echo ${T1wInputImages} | sed 's/@/ /g'`
 T2wInputImages=`echo ${T2wInputImages} | sed 's/@/ /g'`
@@ -458,10 +467,6 @@ else
   T2wFolder_T2wImageWithPath_acpc_brain="${T2wFolder}/${T2wImage}_acpc_brain"
   T1wFolder_T2wImageWithPath_acpc_dc=${T1wFolder}/${T2wImage}_acpc_dc
 fi
-
-log_Msg "T1wFolder: $T1wFolder"
-log_Msg "T2wFolder: $T2wFolder"
-log_Msg "AtlasFolder: $AtlasSpaceFolder"
 
 if [ ! -e ${T1wFolder}/xfms ] ; then
   log_Msg "mkdir -p ${T1wFolder}/xfms/"
@@ -488,6 +493,7 @@ log_Msg "POSIXLY_CORRECT="${POSIXLY_CORRECT}
 Modalities="T1w T2w"
 
 for TXw in ${Modalities} ; do
+
     # set up appropriate input variables
     if [ $TXw = T1w ] ; then
 	TXwInputImages="${T1wInputImages}"
@@ -516,16 +522,19 @@ for TXw in ${Modalities} ; do
         log_Msg "Processing Modality: $TXw"
     fi
 
-#### Gradient nonlinearity correction  (for T1w and T2w) ####
+    # Perform Gradient Nonlinearity Correction
 
     if [ ! $GradientDistortionCoeffs = "NONE" ] ; then
+            log_Msg "Performing Gradient Nonlinearity Correction"
 	
 	i=1
 	for Image in $TXwInputImages ; do
 	    wdir=${TXwFolder}/${TXwImage}${i}_GradientDistortionUnwarp
 		log_Msg "mkdir -p $wdir"
 	    mkdir -p $wdir
-	    ${RUN} ${FSLDIR}/bin/fslreorient2std ${Image} ${wdir}/${TXwImage}${i} #Make sure input axes are oriented the same as the templates 
+      # Make sure input axes are oriented the same as the templates
+	    ${RUN} ${FSLDIR}/bin/fslreorient2std ${Image} ${wdir}/${TXwImage}${i}
+
 	    ${RUN} ${GlobalScripts}/GradientDistortionUnwarp.sh \
 		--workingdir=${wdir} \
 		--coeffs=$GradientDistortionCoeffs \
@@ -535,8 +544,10 @@ for TXw in ${Modalities} ; do
 	    OutputTXwImageSTRING="${OutputTXwImageSTRING}${TXwFolder}/${TXwImage}${i}_gdc "
 	    i=$(($i+1))
 	done
+
     else
 	log_Msg "NOT PERFORMING GRADIENT DISTORTION CORRECTION"
+
 	i=1
 	for Image in $TXwInputImages ; do
 	    Image="`${FSLDIR}/bin/remove_ext $Image`"
@@ -556,10 +567,11 @@ for TXw in ${Modalities} ; do
 	      log_Msg "Not found $(remove_ext $Image)_brain"
 	    fi
 	    i=$(($i+1))
-	done
+	  done
+  
     fi
 
-#### Average Like Scans ####
+    # Average Like (Same Modality) Scans
 
     if [ `echo $TXwInputImages | wc -w` -gt 1 ] ; then
 	log_Msg "Averaging ${TXw} Images"
