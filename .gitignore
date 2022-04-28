@@ -18,3 +18,5 @@
 # project directories
 projects/*
 freesurfer-NHP/*
+
+.DS_Store

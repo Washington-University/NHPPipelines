@@ -770,7 +770,7 @@ if [ "$CustomBrain" = "NONE" ] ; then
 
 # -- Are we using a custom mask in acpc space?
 
-elif [ "$CustomBrain" = "MASK_acpc" ] ; then
+elif [[ "$CustomBrain" == "MASK_acpc" || "$CustomBrain" == "MASK" ]] ; then
 
   log_Msg "Skipping all the steps to Atlas registration, applying custom mask."
   verbose_red_echo "---> Applying custom mask in acpc space"
