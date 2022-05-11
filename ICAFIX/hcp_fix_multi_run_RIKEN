@@ -1,0 +1,734 @@
+#!/bin/bash
+
+#   hcp_fix_multi_run - wrapper script for FIX, for HCP pipelines to clean multiple fMRI runs at a time (useful for cleaning shorter runs)
+#
+#   Requires FIX version 1.065 or later and FSL 6.0 melodic version
+#
+#   Stephen Smith and Matthew F. Glasser
+#
+#   SHCOPYRIGHT
+#
+#   Changes by Timothy B. Brown <tbbrown@wustl.edu>
+#
+#   1) Changes to support 7T ICAFIX processing based on changes originally made by Keith Jamison <kjamison@umn.edu>
+#   2) Changes to log output messages to aid in debugging 
+#
+#   Changes by Takuya Hayashi
+#   1) Changes to create species-specific vein maps
+#   2) Changes to feature extraction of surface geometrics
+
+set -e
+
+DEBUG="TRUE"
+g_script_name=$(basename "${0}")
+
+if [[ $HCPPIPEDIR != "" ]] ; then
+  echo "HCPPIPEDIR: ${HCPPIPEDIR}"
+  source  ${HCPPIPEDIR}/global/scripts/debug.shlib
+else
+  echo "ERORR: cannot find HCPPIPEDIR"
+  exit
+fi
+
+# Set this before calling hcp_fix instead, to make it more flexible
+FSL_FIXDIR=$( cd $(dirname $0) ; pwd)
+export FSL_FIXDIR
+log_Msg "FSL_FIXDIR: ${FSL_FIXDIR}"
+
+# All fix settings are held in the settings.sh file - edit this file to suit your setup
+source ${FSL_FIXDIR}/settings.sh
+HOST=$(hostname)
+log_Msg "Host: $HOST"
+log_Msg "LD_LIBRARY_PATH:$LD_LIBRARY_PATH"
+#############################################################
+
+Usage() {
+    cat <<EOF
+
+Usage: hcp_fix_multi_run <4D_FMRI_data(s)> <highpass> <concat_name> <do_motion_regression> [options]
+
+	Compulsory arguments:
+		<4D_FMRI_data(s)> 	: fmrinames in absolute path separated by @
+		<highpass> 		: temporal highpass full-width (2*sigma) in seconds. for detrending-like behaviour, set <highpass> to 2000
+		<concat_name>           : output concat fmriname in absolute path
+		<do_motion_regression> 	: true or false
+
+	Optional arguments:
+		-t <TrainingFile> 	: Training file (default is HCP_Style_Single_Multirun_Dedrift.RData for Human, NHPHCP_Macaque.RData for Macaque, 	
+					  NHPHCP_Marmoset.RData for Marmoset)
+		-d <dim>		: Dimension for group-ICA (default is estimated by icaDIM)
+		-s <num>		: Species - 0: Human (default), 1: Macaque, 2: Marmoset
+		-r <num>		: Run mode - 0: Run all (PreICA+FIX, ICA+FIX, PostICA+FIX, default), 1: Run ICA,FIX and PostICA+FIX, 
+					  2: Run FIX and PostICA+FIX, 3: Run PostICA+FIX)
+		-g			: use surface geometry FIX
+		-w <num>,<num>,<num>    : Wishart filter Ndist (default is 2,3,3)
+		-T <num>		: FIX threshold 0 to 100 (%) (default is 10 in HUman, 40 in Macaque and Marmoset)
+		-h 			: help message
+		-n 			: Do not overwrite hp if already calculated
+EOF
+    exit 1
+}
+
+[ "$4" = "" ] && Usage
+
+unset POSIXLY_CORRECT
+
+demeanMovementRegressors() {
+	In=${1}
+	log_Msg "demeanMovementRegressors: In: ${In}"
+	Out=${2}
+	log_Msg "demeanMovementRegressors: Out: ${Out}"
+	log_Msg "demeanMovementRegressors: getting nCols"
+	nCols=$(head -1 ${In} | wc -w)
+	
+	log_Msg "demeanMovementRegressors: nCols: ${nCols}"
+	log_Msg "demeanMovementRegressors: getting nRows"
+	nRows=$(wc -l < ${In})
+	log_Msg "demeanMovementRegressors: nRows: ${nRows}"
+
+	cat ${In} | awk '{for(i=1;i<=NF;i++) {sum[i]+=$i ; demean[NR,i]=$i}} END {for(i=1;i<=NR;i++) {for(j=1;j<=NF;j++) { printf "\t%10.6f",demean[i,j]-=(sum[j]/NR);} print ""}}' > ${Out}
+
+	#AllOut=""
+	#c=1
+	#while [ ${c} -le ${nCols} ] ; do
+	#	ColIn=`cat ${In} | sed 's/  / /g' | sed 's/  / /g' | sed 's/^ //g'| cut -d " " -f ${c}`
+	#	valsum=0
+	#	r=1
+	#	while [ ${r} -le ${nRows} ] ; do
+	#		val=`echo "${ColIn}" | head -${r} | tail -1`
+	#		valsum=`echo ${valsum} + ${val} | bc -l`
+	#		r=$((${r}+1))
+	#	done
+	#	valmean=`echo ${valsum} / ${r} | bc -l`
+	#	ColOut=""
+	#	r=1
+	#	while [ ${r} -le ${nRows} ] ; do
+	#		val=`echo "${ColIn}" | head -${r} | tail -1`
+	#		newval=`echo "${val} - ${valmean}" | bc -l`
+	#		ColOut=`echo ${ColOut} $(printf "%10.6f" $newval)`
+	#		r=$((${r}+1))
+	#	done
+	#	ColOut=`echo ${ColOut} | tr ' ' '\n'`
+	#	AllOut=`paste <(echo "${AllOut}") <(echo "${ColOut}")` #Figure out how to do this paste
+	#	c=$((${c}+1))
+	#done
+	#echo "${AllOut}" > ${Out}
+}
+
+function interpret_as_bool()
+{
+    case $(echo "$1" | tr '[:upper:]' '[:lower:]') in
+    (true | yes | 1)
+        echo TRUE
+        ;;
+    (false | no | none | 0)
+        echo FALSE
+        ;;
+    (*)
+        log_Err_Abort "error: '$1' is not valid for this argument, please use TRUE or FALSE"
+        ;;
+    esac
+}
+
+hp=$2
+log_Msg "hp: ${hp}"
+
+unset TrainingData
+#if [ $# -ge 4 ] ; then
+#TrainingData=$4
+#fi
+
+fmris=`echo ${1} | sed 's/@/ /g'` # replaces the @ that combines the filenames with ' '
+log_Msg "fmris: ${fmris}"
+ConcatName="${3}"
+log_Msg "ConcatName: ${ConcatName}"
+doMotionRegression="$4"
+log_Msg "doMotionRegression: $doMotionRegression"
+#################################################
+# Inserted by Takuya Hayashi, July 2018
+shift;shift;shift;shift
+Species=0
+RunMode=0
+WF="2,3,3"
+OW="1"
+FixThresh=""
+SURFGEOM=0
+UserDim=NONE;
+while getopts t:d:s:r:w:nT:hg OPT
+ do
+ case "$OPT" in 
+   "t" ) TrainingData="$OPTARG";;
+   "d" ) UserDim="$OPTARG";;
+   "s" ) Species="$OPTARG";;
+   "r" ) RunMode="$OPTARG";;
+   "w" ) WF="$OPTARG";;
+   "n" ) OW=0;;
+   "T" ) FixThresh="$OPTARG";;
+   "g" ) SURFGEOM=1;;
+   "h" ) usage_exit;;
+    * )  usage_exit;;
+ esac
+done;
+
+# RData
+if [ $Species = 0 ] ; then
+	if [ "$TrainingData" = "" ] ; then 
+		TrainingData=${FSL_FIXDIR}/training_files/HCP_Style_Single_Multirun_Dedrift.RData;
+	fi
+	export SPECIES=Human
+	if [ "$FixThresh" = "" ] ; then
+		FixThresh=10
+	fi
+elif [ $Species = 1 ] ; then
+	export SPECIES=Macaque
+	if [ "$TrainingData" = "" ] ; then
+	  	TrainingData=${FSL_FIXDIR}/training_files/NHPHCP_Macaque.RData
+	fi
+	if [ "$FixThresh" = "" ] ; then
+		FixThresh=40
+	fi
+elif [ $Species = 2 ] ; then
+	export SPECIES=Marmoset
+	if [ "$TrainingData" = "" ] ; then
+		TrainingData=${FSL_FIXDIR}/training_files/NHPHCP_Marmoset.RData
+	fi
+	if [ "$FixThresh" = "" ] ; then
+		FixThresh=40
+	fi
+fi
+
+ndhpvol="`echo $WF | cut -d ',' -f1`"
+ndhpcifti="`echo $WF | cut -d ',' -f2`"
+ndcifti="`echo $WF | cut -d ',' -f3`"
+
+log_Msg  "SPECIES=$SPECIES"
+. /mnt/pub/devel/NHPHCPPipeline/Examples/Scripts/SetUpHCPPipeline_RIKEN.sh
+
+FSL_FIX_WBC=${CARET7DIR}/wb_command
+
+log_Msg  "TrainingData=$TrainingData"
+log_Msg  "FIX threshold = $FixThresh"
+log_Msg  "WF Ndist = $WF"
+log_Msg  "UserDim = $UserDim"
+log_Msg  "CARET7DIR:$CARET7DIR"
+
+################################################
+DIR=`pwd`
+
+echo $fmris | tr ' ' '\n' #separates paths separated by ' '
+
+concatfmri=`basename $(remove_ext ${ConcatName})`_hp$hp
+concat_fmri_orig=`basename $(remove_ext ${ConcatName})`
+ConcatFolder=`dirname ${ConcatName}`
+
+RunPreFix () {
+
+#Loops over the files and does highpass to each of them
+log_Msg "Looping over files and doing highpass to each of them"
+
+NIFTIvolMergeSTRING=""
+NIFTIvolhpMergeSTRING=""
+CIFTIMergeSTRING=""
+CIFTIhpMergeSTRING=""
+MovementTXTMergeSTRING=""
+MovementNIFTIMergeSTRING=""
+MovementNIFTIhpMergeSTRING=""
+SBRefVolSTRING=""
+MeanVolSTRING=""
+MeanCIFTISTRING=""
+FileListSTRING="" # Added by TH May 2019
+for fmri in $fmris ; do  
+	log_Msg "Top of loop through fmris: fmri: ${fmri}"
+
+	NIFTIvolMergeSTRING=`echo "${NIFTIvolMergeSTRING}$($FSLDIR/bin/remove_ext $fmri)_demean "`
+	NIFTIvolhpVNMergeSTRING=`echo "${NIFTIvolhpVNMergeSTRING}$($FSLDIR/bin/remove_ext $fmri)_hp${hp}_vnts "`
+	SBRefVolSTRING=`echo "${SBRefVolSTRING}$($FSLDIR/bin/remove_ext $fmri)_SBRef "`
+	MeanVolSTRING=`echo "${MeanVolSTRING}$($FSLDIR/bin/remove_ext $fmri)_mean "`
+	VNVolSTRING=`echo "${VNVolSTRING}$($FSLDIR/bin/remove_ext $fmri)_hp${hp}_vn "`
+	CIFTIMergeSTRING=`echo "${CIFTIMergeSTRING} -cifti $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii"`
+	CIFTIhpVNMergeSTRING=`echo "${CIFTIhpVNMergeSTRING} -cifti $($FSLDIR/bin/remove_ext $fmri)_Atlas_hp${hp}_vn.dtseries.nii"`
+	MeanCIFTISTRING=`echo "${MeanCIFTISTRING} -cifti $($FSLDIR/bin/remove_ext $fmri)_Atlas_mean.dscalar.nii "`
+	VNCIFTISTRING=`echo "${VNCIFTISTRING} -cifti $($FSLDIR/bin/remove_ext $fmri)_Atlas_hp${hp}_vn.dscalar.nii "`
+	MovementNIFTIMergeSTRING=`echo "${MovementNIFTIMergeSTRING}$($FSLDIR/bin/remove_ext $fmri)_hp${hp}.ica/mc/prefiltered_func_data_mcf_conf.nii.gz "`
+	MovementNIFTIhpMergeSTRING=`echo "${MovementNIFTIhpMergeSTRING}$($FSLDIR/bin/remove_ext $fmri)_hp${hp}.ica/mc/prefiltered_func_data_mcf_conf_hp.nii.gz "`
+	
+	cd `dirname $fmri`
+	log_Msg "pwd: "$(pwd)
+	fmri=`basename $fmri`
+	fmri=`$FSLDIR/bin/imglob $fmri`
+	[ `imtest $fmri` != 1 ] && echo No valid 4D_FMRI input file specified && exit 1
+	fmri_orig=$fmri
+	FileListSTRING="${FileListSTRING}${fmri}@" # Added by TH May 2019
+
+	mkdir -p ${fmri}_hp$hp.ica/mc
+	if [ -f Movement_Regressors.txt ] ; then
+		log_Msg "About to create ${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf.par file"
+		cat Movement_Regressors.txt | awk '{ print $4 " " $5 " " $6 " " $1 " " $2 " " $3}' > ${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf.par
+	else
+		log_Error "Movement_Regressors.txt not retrieved properly." 
+		exit -1
+	fi
+
+	tr=`$FSLDIR/bin/fslval $fmri pixdim4` 
+	log_Msg "tr: $tr"
+	log_Msg "processing FMRI file $fmri with highpass $hp"
+
+       if [ $OW = 1 ] ; then imrm ${fmri}_demean;fi
+       if [ ! -e ${fmri}_demean.nii.gz ] ; then
+  	 log_Msg "processing FMRI mean and demean"
+        #Demean volume, movement regressors, and data
+	 ${FSLDIR}/bin/fslmaths $fmri -Tmean ${fmri}_mean
+ 	 ${FSLDIR}/bin/fslmaths $fmri -sub ${fmri}_mean ${fmri}_demean
+	fi
+
+	demeanMovementRegressors Movement_Regressors.txt Movement_Regressors_demean.txt
+	MovementTXTMergeSTRING=`echo "${MovementTXTMergeSTRING}$(pwd)/Movement_Regressors_demean.txt "`
+
+	if [ $OW = 1 ] ; then rm -rf $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii ; fi
+	if [ ! -e $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii ] ; then
+	log_Msg "Calculating mean and demeaned fmri Atlas"	
+	${FSL_FIX_WBC} -cifti-reduce $($FSLDIR/bin/remove_ext $fmri)_Atlas.dtseries.nii MEAN $($FSLDIR/bin/remove_ext $fmri)_Atlas_mean.dscalar.nii
+	${FSL_FIX_WBC} -cifti-math "TCS - MEAN" $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii -var TCS $($FSLDIR/bin/remove_ext $fmri)_Atlas.dtseries.nii -var MEAN $($FSLDIR/bin/remove_ext $fmri)_Atlas_mean.dscalar.nii -select 1 1 -repeat
+	fi
+
+	#Highpass Filter and Variance Normalize Data
+	#if [ $hp -gt 0 ] ; then 
+	#	log_Msg "running highpass"
+	#	hptr=`echo "10 k $hp 2 / $tr / p" | dc -` 
+	#	log_Msg "hptr $hptr"
+	#	${FSLDIR}/bin/fslmaths $fmri -sub ${fmri}_mean -bptf $hptr -1 ${fmri}_hp$hp 
+	#fi
+		
+	#log_Msg "functionmotionconfounds log file is to be named: .fix.functionmotionconfounds.log instead of .fix.log"
+	#cd ${fmri}_hp$hp.ica
+	#${FSL_FIXDIR}/call_matlab.sh -l .fix.functionmotionconfounds.log -f functionmotionconfounds $tr $hp 
+	#cd ..
+		
+	#${FSL_FIX_WBC} -cifti-convert -to-nifti ${fmri}_Atlas.dtseries.nii ${fmri}_Atlas_FAKENIFTI.nii.gz
+	#${FSLDIR}/bin/fslmaths ${fmri}_Atlas_FAKENIFTI.nii.gz -bptf $hptr -1 ${fmri}_Atlas_hp$hp_FAKENIFTI.nii.gz
+	#${FSL_FIX_WBC} -cifti-convert -from-nifti ${fmri}_Atlas_hp$hp_FAKENIFTI.nii.gz ${fmri}_Atlas.dtseries.nii ${fmri}_Atlas_hp$hp.dtseries.nii
+	#$FSLDIR/bin/imrm ${fmri}_Atlas_FAKENIFTI ${fmri}_Atlas_hp$hp_FAKENIFTI
+
+  #cd ${fmri}_hp$hp.ica
+	#if [ -e .fix.functionhighpassandvariancenormalize.log ] ; then
+	#    rm .fix.functionhighpassandvariancenormalize.log
+	#fi
+	if [ -e .fix.functionhighpassandvariancenormalize_riken.log ] ; then
+	    rm .fix.functionhighpassandvariancenormalize_riken.log
+	fi
+
+	if [ $OW = 1 ] ; then
+  	  if [ -e ${fmri}_hp${hp}.nii.gz ] ; then
+		log_Msg "Found and removing ${fmri}_hp${hp}"
+		imrm ${fmri}_hp${hp}
+	  fi
+  	  if [ -e ${fmri}_Atlas_hp${hp}.dtseries.nii ] ; then
+		log_Msg "Found and removing ${fmri}_Atlas_hp${hp}.dtseries.nii"
+		rm -rf ${fmri}_Atlas_hp${hp}.dtseries.nii
+	  fi
+	fi
+	if [ -e ${fmri}_hp${hp}.nii.gz ] ; then
+		log_Msg "Found ${fmri}_hp${hp} and confirming it is already filtered"
+		v=`fslstats ${fmri}_hp${hp} -M`
+		if [ `echo "$v > 0.000001" | bc` -eq 1 ] || [ `echo "$v < -0.000001" | bc` -eq 1 ] ; then
+		  log_Msg "Found ${fmri}_hp${hp} is not yet filtered"
+		  imrm ${fmri}_hp${hp}
+		else
+		  log_Msg "Found ${fmri}_hp${hp} is already filtered"
+		fi
+	fi
+  	if [ -e ${fmri}_Atlas_hp${hp}.dtseries.nii ] ; then
+		log_Msg "Found and using ${fmri}_Atlas_hp${hp}.dtseries.nii"
+	fi
+
+	log_Msg "${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken $tr $hp $fmri ${FSL_FIX_WBC} $ndhpvol $ndhpcifti $ndcifti"
+
+	#${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken $tr $hp $fmri ${FSL_FIX_WBC}
+	${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken $tr $hp $fmri ${FSL_FIX_WBC} $ndhpvol $ndhpcifti $ndcifti
+
+	#log_Msg "matlab -nodesktop -nosplash -r \"addpath('$FSL_FIXDIR'); addpath('${FSLDIR}/etc/matlab'); functionhighpassandvariancenormalize_riken($tr,$hp,'$fmri','$FSL_FIX_WBC',$ndhpvol,$ndhpcifti,$ndcifti);\""
+	#matlab -nodesktop -nosplash -r "addpath('$FSL_FIXDIR'); addpath('${FSLDIR}/etc/matlab'); functionhighpassandvariancenormalize_riken($tr,$hp,'$fmri','$FSL_FIX_WBC',$ndhpvol,$ndhpcifti,$ndcifti);" >> .fix.functionhighpassandvariancenormalize_riken.log 2>&1
+
+  #cd ..
+  	if [ "$(cat ${fmri}_dims.txt)" != "" ] ; then
+    		log_Msg "Dims: $(cat ${fmri}_dims.txt)"
+  	else
+    		log_Msg "Dims was not properly estimated by IcaDim"
+  	fi
+  
+	fslmaths $(pwd)/${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf_conf.nii.gz -Tmean $(pwd)/${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf_conf_mean.nii.gz
+	fslmaths $(pwd)/${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf_conf.nii.gz -sub $(pwd)/${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf_conf_mean.nii.gz $(pwd)/${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf_conf.nii.gz
+	$FSLDIR/bin/imrm $(pwd)/${fmri}_hp$hp.ica/mc/prefiltered_func_data_mcf_conf_mean.nii.gz
+
+	fmri=${fmri}_hp$hp
+	#cd ${fmri}.ica
+	# Per https://github.com/Washington-University/Pipelines/issues/60, the following line doesn't appear to be necessary
+	#$FSLDIR/bin/imln ../$fmri filtered_func_data
+	#cd ..
+	log_Msg "Bottom of loop through fmris: fmri: ${fmri}"
+done
+
+#AlreadyHP="-1" #Don't run highpass on concatenated data
+
+#Make Concatenated Folder
+ConcatFolder=`dirname ${ConcatName}`
+log_Msg "Making concatenated folder: ${ConcatFolder}"
+if [ ! -e ${ConcatFolder} ] ; then  
+	mkdir -p ${ConcatFolder} 
+else
+	if [ $OW = 1 ] ; then
+		rm -r ${ConcatFolder}
+	fi
+	mkdir -p ${ConcatFolder}
+fi
+
+ConcatNameNoExt=$($FSLDIR/bin/remove_ext $ConcatName)  # No extension, but still includes the directory path
+
+if [ -e `remove_ext ${ConcatName}`_fmris.txt ] ; then rm `remove_ext ${ConcatName}`_fmris.txt;fi # Add by TH May 2019
+echo ${FileListSTRING} >> `remove_ext ${ConcatName}`_fmris.txt # Add by TH May 2019
+
+fslmerge -tr `remove_ext ${ConcatName}`_demean ${NIFTIvolMergeSTRING} $tr
+fslmerge -tr `remove_ext ${ConcatName}`_hp${hp}_vnts ${NIFTIvolhpVNMergeSTRING} $tr
+fslmerge -t  `remove_ext ${ConcatName}`_SBRef ${SBRefVolSTRING}
+fslmerge -t  `remove_ext ${ConcatName}`_mean ${MeanVolSTRING}
+fslmerge -t  `remove_ext ${ConcatName}`_hp${hp}_vn ${VNVolSTRING}
+fslmaths `remove_ext ${ConcatName}`_SBRef -Tmean `remove_ext ${ConcatName}`_SBRef
+fslmaths `remove_ext ${ConcatName}`_mean -Tmean `remove_ext ${ConcatName}`_mean
+fslmaths `remove_ext ${ConcatName}`_hp${hp}_vn -Tmean `remove_ext ${ConcatName}`_hp${hp}_vn
+fslmaths `remove_ext ${ConcatName}`_hp${hp}_vnts -mul `remove_ext ${ConcatName}`_hp${hp}_vn `remove_ext ${ConcatName}`_hp${hp} 
+fslmaths `remove_ext ${ConcatName}`_demean -add `remove_ext ${ConcatName}`_mean `remove_ext ${ConcatName}` 
+fslmaths `remove_ext ${ConcatName}`_SBRef -bin `remove_ext ${ConcatName}`_brain_mask # Inserted to create mask to be used in melodic for suppressing memory error - Takuya Hayashi
+
+
+# Same thing for the CIFTI
+${FSL_FIX_WBC} -cifti-merge `remove_ext ${ConcatName}`_Atlas_demean.dtseries.nii ${CIFTIMergeSTRING}
+${FSL_FIX_WBC} -cifti-average `remove_ext ${ConcatName}`_Atlas_mean.dscalar.nii ${MeanCIFTISTRING}
+${FSL_FIX_WBC} -cifti-average `remove_ext ${ConcatName}`_Atlas_hp${hp}_vn.dscalar.nii ${VNCIFTISTRING}
+${FSL_FIX_WBC} -cifti-math "TCS + MEAN" `remove_ext ${ConcatName}`_Atlas.dtseries.nii -var TCS `remove_ext ${ConcatName}`_Atlas_demean.dtseries.nii -var MEAN `remove_ext ${ConcatName}`_Atlas_mean.dscalar.nii -select 1 1 -repeat
+${FSL_FIX_WBC} -cifti-merge `remove_ext ${ConcatName}`_Atlas_hp${hp}_vn.dtseries.nii ${CIFTIhpVNMergeSTRING}
+${FSL_FIX_WBC} -cifti-math "TCS * VN" `remove_ext ${ConcatName}`_Atlas_hp${hp}.dtseries.nii -var TCS `remove_ext ${ConcatName}`_Atlas_hp${hp}_vn.dtseries.nii -var VN `remove_ext ${ConcatName}`_Atlas_hp${hp}_vn.dscalar.nii -select 1 1 -repeat
+
+
+# At this point the concatenated VN'ed time series (both volume and CIFTI, following the "1st pass" VN) can be deleted
+log_Msg "Removing the concatenated VN'ed time series"
+$FSLDIR/bin/imrm ${ConcatNameNoExt}_hp${hp}_vnts
+/bin/rm -f ${ConcatNameNoExt}_Atlas_hp${hp}_vn.dtseries.nii
+# Alternatively, if the volume version is needed for any reason, need to at least rename it to avoid conflict with
+# same named file that will get created by running functionhighpassandvariancenormalize on the concatfmrihp file
+# during the "2nd pass" VN (below)
+#$FSLDIR/bin/immv ${ConcatNameNoExt}_hp${hp}_vnts ${ConcatNameNoExt}_hp${hp}_vnts0
+
+# Nor do we need the concatenated demeaned time series (either volume or CIFTI)
+log_Msg "Removing the concatenated demeaned time series"
+$FSLDIR/bin/imrm ${ConcatNameNoExt}_demean
+/bin/rm -f ${ConcatNameNoExt}_Atlas_demean.dtseries.nii
+
+# Also, we no longer need the individual run VN'ed or demeaned time series (either volume or CIFTI); delete to save space
+for fmri in $fmris ; do
+	log_Msg "Removing the individual run VN'ed and demeaned time series for ${fmri}"
+	fmriNoExt=$($FSLDIR/bin/remove_ext $fmri)  # $fmriNoExt still includes leading directory components
+	$FSLDIR/bin/imrm ${fmriNoExt}_hp${hp}_vnts
+	$FSLDIR/bin/imrm ${fmriNoExt}_demean
+	/bin/rm -f ${fmriNoExt}_Atlas_hp${hp}_vn.dtseries.nii
+	/bin/rm -f ${fmriNoExt}_Atlas_demean.dtseries.nii
+
+	log_Msg "Removing the individual run HP'ed time series for ${fmri}"
+	$FSLDIR/bin/imrm ${fmriNoExt}_hp${hp}
+	/bin/rm -f ${fmriNoExt}_Atlas_hp${hp}.dtseries.nii
+done
+
+## ---------------------------------------------------------------------------
+## Prepare for melodic on concatenated file
+## ---------------------------------------------------------------------------
+
+#ConcatFolder=`dirname ${ConcatName}`
+cd ${ConcatFolder}
+
+#Concat fMRI is intensity normalized (not variance normalized) and has no overall mean but is detrended and within run demeaned and variance normalized for both volume and CIFTI
+#concatfmri=`basename $(remove_ext ${ConcatName})`_hp${hp}
+#concat_fmri_orig=`basename $(remove_ext ${ConcatName})`
+
+mkdir -p ${concatfmri}.ica
+log_Msg "About to put contents of ${MovementTXTMergeSTRING} in Movement_Regressors_demean.txt file"
+cat ${MovementTXTMergeSTRING} > Movement_Regressors_demean.txt
+mkdir -p ${concatfmri}.ica/mc
+fslmerge -tr ${concatfmri}.ica/mc/prefiltered_func_data_mcf_conf_hp ${MovementNIFTIhpMergeSTRING} $tr
+fslmerge -tr ${concatfmri}.ica/mc/prefiltered_func_data_mcf_conf ${MovementNIFTIMergeSTRING} $tr
+# Added the following line - needed for FIX feature extraction - Takuya Hayashi July 2018
+cat Movement_Regressors_demean.txt | awk '{ print $4 " " $5 " " $6 " " $1 " " $2 " " $3}' > ${concatfmri}.ica/mc/prefiltered_func_data_mcf.par
+
+cd `dirname $fmri`
+}
+
+RunICA () {
+AlreadyHP="-1" #Don't run highpass on concatenated data
+cd ${ConcatFolder}
+if [ "$tr" = "" ] ; then 
+	fmri=`echo ${fmris} | tr ' ' '\n' | tail -1`
+	tr=`$FSLDIR/bin/fslval $fmri pixdim4` 
+	log_Msg "tr: $tr"
+fi
+
+log_Msg "running MELODIC"
+log_Msg "About to run melodic: Contents of ${concatfmri}.ica follow"
+if [ "${DEBUG}" = "TRUE" ] ; then
+	ls -lRa `remove_ext ${concatfmri}`.ica
+fi
+
+log_Msg "Running melodic located at: ${FSLDIR}/bin/melodic"
+log_Msg "Beginning of melodic version log, help, and checksum"
+if [ "${DEBUG}" = "TRUE" ] ; then
+	log_Msg "${FSLDIR}/bin/melodic --version"
+	${FSLDIR}/bin/melodic --version
+	log_Msg "${FSLDIR}/bin/melodic --help"
+	${FSLDIR}/bin/melodic --help
+	log_Msg "md5sum ${FSLDIR}/bin/melodic"
+	md5sum ${FSLDIR}/bin/melodic
+fi
+log_Msg "End of melodic version log, help, and checksum"
+
+###Run on concatenated file --
+
+# Takuya Hayashi inserted, July 2018
+ 	#${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize.log -f functionhighpassandvariancenormalize $tr $AlreadyHP $concatfmri  ${FSL_FIX_WBC}
+
+if [ -e ${concatfmri}_WF.txt ] ; then rm ${concatfmri}_WF.txt;fi # Add by TH Aug 2019
+echo $ndhpvol $ndhpcifti $ndcifti > ${concatfmri}_WF.txt
+
+log_Msg "${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken ${tr} ${AlreadyHP} ${concatfmri} ${FSL_FIX_WBC} ${ndhpvol} ${ndhpcifti} ${ndcifti}"
+ 
+	${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken ${tr} ${AlreadyHP} ${concatfmri} ${FSL_FIX_WBC} ${ndhpvol} ${ndhpcifti} ${ndcifti}
+
+if [ "$UserDim" != "NONE" ] ; then
+	Dim=$UserDim
+	log_Msg "Melodic use Dim=${Dim} user specified"
+else
+	Dim=`cat ${concatfmri}_dims.txt`
+	log_Msg "Melodic use Dim=${Dim} estimated by IcaDim"
+fi
+
+#Need to decide if using Wishart-based dim estimate or melodic-based estimate.  Also need to decide if turning off melodic VN and feeding in ours --vn --dim=${Dim}
+
+# Original melodic command without logging of command
+# ${FSLDIR}/bin/melodic -i $concatfmri -o ${concatfmri}.ica/filtered_func_data.ica -d -250 --nobet --report --Oall --tr=$tr
+#
+# melodic command with verbose output and debugging output, used when trying to determine why melodic was crashing
+# melodic_cmd="${FSLDIR}/bin/melodic -i $concatfmri -o ${concatfmri}.ica/filtered_func_data.ica --nobet --report --Oall --tr=$tr --verbose --debug"
+
+#melodic_cmd="${FSLDIR}/bin/melodic -i $concatfmri -o ${concatfmri}.ica/filtered_func_data.ica --nobet --report --Oall --tr=$tr"
+
+MELODIC="${FSLDIR}/bin/melodic"
+MELODIC=/media/myelin/brainmappers/Connectome_Project/MultiRunICA+FIXTest/melodic
+MELODIC=/mnt/pub/devel/FSL-devel/MELODIC/melodic_20170712
+
+# Added "-m `remove_ext ${ConcatName}`_brain_mask" to avoid memory issue - Takuya Hayahsi July 2018
+melodic_cmd="${MELODIC} -i ${concatfmri}_vnts -o ${concatfmri}.ica/filtered_func_data.ica --nobet --report --Oall --tr=$tr --vn --dim=${Dim} --verbose --debug -m `remove_ext ${ConcatName}`_brain_mask"
+
+log_Msg "melodic_cmd: ${melodic_cmd}"
+${melodic_cmd}
+return_code=$?
+log_Msg "melodic has been run: return_code = ${return_code}"
+log_Msg "melodic has been run: Contents of ${concatfmri}.ica follow"
+if [ "${DEBUG}" = "TRUE" ] ; then
+	ls -lRa `remove_ext ${concatfmri}`.ica
+fi
+
+if [ "${return_code}" -ne "0" ] ; then
+    log_Error "melodic has returned a non-zero code"
+	log_Error "Exiting this script with -1 return value."
+	exit -1
+fi
+
+# At this point (following melodic), ${concatfmrihp}_vnts is no longer necessary
+$FSLDIR/bin/imrm ${concatfmrihp}_vnts
+
+# Delete some time series, resulting from the '--Oall' option in melodic, that aren't needed
+# (these may only get created in the context of MIGP)
+$FSLDIR/bin/imrm ${concatfmrihp}.ica/filtered_func_data.ica/alldat
+$FSLDIR/bin/imrm ${concatfmrihp}.ica/filtered_func_data.ica/concat_data
+
+## ---------------------------------------------------------------------------
+## Housekeeping related to files expected for FIX
+## ---------------------------------------------------------------------------
+
+cd `remove_ext ${concatfmri}`.ica
+
+$FSLDIR/bin/imln ../${concatfmri} filtered_func_data
+$FSLDIR/bin/imln filtered_func_data.ica/mask mask
+
+if [ `$FSLDIR/bin/imtest ../${concat_fmri_orig}_SBRef` = 1 ] ; then
+	$FSLDIR/bin/imln ../${concat_fmri_orig}_SBRef mean_func
+else
+	$FSLDIR/bin/imln filtered_func_data.ica/mean mean_func
+fi
+
+if [ -f ../${concat_fmri_orig}_Atlas_hp$hp.dtseries.nii ] ; then
+	$FSLDIR/bin/imln ../${concat_fmri_orig}_Atlas_hp${hp}.dtseries.nii Atlas.dtseries.nii
+fi
+
+mkdir -p reg
+cd reg
+
+i_am_at=`pwd`
+log_Msg "current folder ${i_am_at}"
+
+$FSLDIR/bin/imln ../../../../T1w_restore_brain highres
+$FSLDIR/bin/imln ../../../../wmparc wmparc
+$FSLDIR/bin/imln ../mean_func example_func
+$FSLDIR/bin/makerot --theta=0 > highres2example_func.mat
+if [ `$FSLDIR/bin/imtest ../../../../T2w` = 1 ] ; then
+	$FSLDIR/bin/fslmaths ../../../../T1w -div ../../../../T2w veins -odt float
+	# Added for NHP
+	if [ $SPECIES = Human ] ; then
+	  	$FSLDIR/bin/flirt -in ${FSL_FIXDIR}/mask_files/hcp_0.7mm_brain_mask -ref veins -out veinbrainmask -applyxfm
+	else
+  		$FSLDIR/bin/fslmaths $TemplateMask -bin veinbrainmask
+	fi
+	#$FSLDIR/bin/flirt -in ${FSL_FIXDIR}/mask_files/hcp_0.7mm_brain_mask -ref veins -out veinbrainmask -applyxfm
+	$FSLDIR/bin/fslmaths veinbrainmask -bin veinbrainmask
+	$FSLDIR/bin/fslmaths veins -div `$FSLDIR/bin/fslstats veins -k veinbrainmask -P 50` -mul 2.18 -thr 10 -min 50 -div 50 veins
+	$FSLDIR/bin/flirt -in veins -ref example_func -applyxfm -init highres2example_func.mat -out veins_exf
+	$FSLDIR/bin/fslmaths veins_exf -mas example_func veins_exf
+fi
+cd ../..
+}
+
+RunFix () {
+AlreadyHP="-1" #Don't run highpass on concatenated data
+cd ${ConcatFolder}
+log_Msg "running FIX"
+
+# Changes to handle user specified training data file
+if [ "X${TrainingData}" != X ]; then
+	# User has specified a training data file
+	
+	# add .RData suffix if not already there
+	if [[ "${TrainingData}" != *.RData ]]; then 
+		TrainingData=${TrainingData}.RData
+	fi
+	
+	# if the specified TrainingData is not a full path to an existing file,
+	# assume that the user is specifying the name of a file in the training_files folder in FSL_FIXDIR
+	if [ ! -f "${TrainingData}" ]; then 
+		TrainingData=${FSL_FIXDIR}/training_files/${TrainingData}
+	fi
+	log_Msg "User has specified a training data file: ${TrainingData}"
+	
+	# finally, if the TrainingData file is not found, report an error and get out of here
+	if [ ! -f "${TrainingData}" ]; then
+		log_Error "FIX training data not found: ${TrainingData}"
+		exit -1
+	fi
+
+	# added for fix_0c_reg_masks - Takuya Hayashi
+	cp ${FSLDIR}/etc/flirtsch/ident.mat ${concatfmri}.ica/reg/standard2example_func.mat
+		
+else
+	log_Msg "User has NOT specified a training data file"
+	log_Msg "using training data ${FSL_FIXDIR}/training_files/HCP_hp2000.RData"
+	training_hp="2000"
+	TrainingData=${FSL_FIXDIR}/training_files/HCP_hp${training_hp}.RData
+fi
+
+
+if [[ ${doMotionRegression} == "TRUE" ]]; then
+	if [ $SURFGEOM = 0 ] ; then
+		fix_cmd=("${FSL_FIXDIR}/fix" "${concatfmri}.ica" "${TrainingData}" "${FixThresh}" -m -h "${AlreadyHP}")
+	else
+		fix_cmd=("${FSL_FIXDIR}/fix_hcp" "${concatfmri}.ica" "${TrainingData}" "${FixThresh}" -m -h "${AlreadyHP}")
+	fi
+
+else
+    #-h is actually a subargument to -m, and will cause problems if specified without (or even not directly following) -m
+	# Update (11/8/2019): No longer true as of FIX 1.06.12, but since filtering of the CIFTI in MR-FIX occurs in
+	# functionhighpassandvariancenormalize it doesn't matter, so we leave the code unchanged so that we don't
+	# need to add a FIX version dependency to the script
+	fix_cmd=("${FSL_FIXDIR}/fix" "${concatfmri}.ica" "${TrainingData}" "${FixThresh}")
+fi
+
+log_Msg "fix_cmd: ${fix_cmd[*]}"
+"${fix_cmd[@]}"
+
+return_code=$?
+if [ "${return_code}" -ne "0" ] ; then
+	log_Err_Abort "return_code from fix_cmd: ${return_code}"
+fi
+
+log_Msg "Done running FIX"
+
+}
+
+RunPostFix () {
+cd ${ConcatFolder}
+
+log_Msg "Moving ${concatfmri}.ica/filtered_func_data_clean to ${concatfmri}_clean"
+$FSLDIR/bin/immv ${concatfmri}.ica/filtered_func_data_clean ${concatfmri}_clean
+$FSLDIR/bin/immv ${concatfmri}.ica/filtered_func_data_clean_vn ${concatfmri}_clean_vn
+
+log_Msg "Checking for existence of ${concatfmri}.ica/Atlas_clean.dtseries.nii"
+if [ -f ${concatfmri}.ica/Atlas_clean.dtseries.nii ] ; then
+	log_Msg "Moving ${concatfmri}.ica/Atlas_clean.dtseries.nii to ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii"
+	/bin/mv ${concatfmri}.ica/Atlas_clean.dtseries.nii ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii
+	/bin/mv ${concatfmri}.ica/Atlas_clean_vn.dscalar.nii ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dscalar.nii
+	/bin/mv ${concatfmri}.ica/Atlas_unst.dtseries.nii ${concat_fmri_orig}_Atlas_hp${hp}_unst.dtseries.nii
+	${FSL_FIX_WBC} -cifti-math "TCS/VN" ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dtseries.nii -var TCS ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii -var VN ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dscalar.nii -select 1 1 -repeat
+fi
+
+#Cleaned volume and CIFTI have no mean and are intensity normalized by multiplying in the overall variance normalization
+#This must be divided back out and the original variance normalization multipled back in
+#Then the mean is added back in to return the timeseries to its original state minus the noise
+
+Start="1"
+for fmri in $fmris ; do
+	NumTPS=`${FSL_FIX_WBC} -file-information $(remove_ext ${fmri})_Atlas.dtseries.nii -no-map-info -only-number-of-maps`
+	Stop=`echo "${NumTPS} + ${Start} -1" | bc -l`
+	log_Msg "Start=${Start} Stop=${Stop}"
+	
+	log_Msg "cifti merging"
+	cifti_out=`remove_ext ${fmri}`_Atlas_hp${hp}_clean.dtseries.nii
+	${FSL_FIX_WBC} -cifti-merge ${cifti_out} -cifti ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii -column ${Start} -up-to ${Stop}
+	${FSL_FIX_WBC} -cifti-math "((TCS / VNA) * VN) + Mean" `remove_ext ${fmri}`_Atlas_hp${hp}_clean.dtseries.nii -var TCS `remove_ext ${fmri}`_Atlas_hp${hp}_clean.dtseries.nii -var VNA `remove_ext ${concat_fmri_orig}`_Atlas_hp${hp}_vn.dscalar.nii -select 1 1 -repeat -var VN `remove_ext ${fmri}`_Atlas_hp${hp}_vn.dscalar.nii -select 1 1 -repeat -var Mean `remove_ext ${fmri}`_Atlas_mean.dscalar.nii -select 1 1 -repeat
+	
+	# Approach 1 for single run VN - not working
+	#${FSL_FIX_WBC} -cifti-math '1/VNA*VNB/VNC' `remove_ext ${fmri}`_Atlas_hp${hp}_clean_vn.dscalar.nii -var VNA `remove_ext ${fmri}`_Atlas_vn.dscalar.nii -var VNB `remove_ext ${concat_fmri_orig}`_Atlas_vn.dscalar.nii -var VNC `remove_ext ${concat_fmri_orig}`_Atlas_hp${hp}_clean_vn.dscalar.nii
+
+	# Approach 1 for single run VN - working
+	log_Msg "Calculate VN 1"
+	cp `remove_ext ${concat_fmri_orig}`_Atlas_hp${hp}_clean_vn.dscalar.nii `remove_ext ${fmri}`_Atlas_hp${hp}_clean_vn.dscalar.nii
+
+	# Approach 2 for single run VN need to modify fix_3_clean
+	log_Msg "Calculate VN 2"
+	${FSL_FIX_WBC} -cifti-merge `remove_ext ${fmri}`_Atlas_hp${hp}_clean_unst.dtseries.nii -cifti ${concat_fmri_orig}_Atlas_hp${hp}_unst.dtseries.nii -column ${Start} -up-to ${Stop}
+	${FSL_FIX_WBC} -cifti-reduce `remove_ext ${fmri}`_Atlas_hp${hp}_clean_unst.dtseries.nii STDEV `remove_ext ${fmri}`_Atlas_hp${hp}_clean_vn2.dscalar.nii
+	rm `remove_ext ${fmri}`_Atlas_hp${hp}_clean_unst.dtseries.nii
+
+	readme_for_cifti_out=${cifti_out%.dtseries.nii}.README.txt
+	touch ${readme_for_cifti_out}
+	short_cifti_out=${cifti_out##*/}
+	echo "${short_cifti_out} was generated by applying \"multi-run FIX\" (using 'hcp_fix_multi_run')" >> ${readme_for_cifti_out}
+	echo "across the following individual runs:" >> ${readme_for_cifti_out}
+	for readme_fmri in ${fmris} ; do
+		echo "  ${readme_fmri}" >> ${readme_for_cifti_out}
+	done
+		
+	log_Msg "volume merging"
+	${FSL_FIX_WBC} -volume-merge `remove_ext ${fmri}`_hp${hp}_clean.nii.gz -volume ${concatfmri}_clean.nii.gz -subvolume ${Start} -up-to ${Stop}
+	fslmaths `remove_ext ${fmri}`_hp${hp}_clean.nii.gz -div `remove_ext ${concat_fmri_orig}`_hp${hp}_vn -mul `remove_ext ${fmri}`_hp${hp}_vn -add `remove_ext ${fmri}`_mean `remove_ext ${fmri}`_hp${hp}_clean.nii.gz
+	Start=`echo "${Start} + ${NumTPS}" | bc -l`
+done
+
+log_Msg "Finished"
+
+}
+
+if [ "$RunMode" = 0 ] ; then
+	RunPreFix;RunICA;RunFix;RunPostFix
+elif [ "$RunMode" = 1 ] ; then
+	RunICA; RunFix;RunPostFix
+elif [ "$RunMode" = 2 ] ; then
+	RunFix;RunPostFix
+elif [ "$RunMode" = 3 ] ; then
+	RunPostFix
+fi
+cd ${DIR}
+

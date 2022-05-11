@@ -167,6 +167,10 @@ get_options()
 				p_DeleteIntermediates=${argument#*=}
 				index=$(( index + 1 ))
 				;;
+			--wf=*)
+				p_WF=${argument#*=}
+				index=$(( index + 1 ))
+				;;
 			*)
 				show_usage
 				log_Err_Abort "unrecognized option: ${argument}"
@@ -476,6 +480,9 @@ main()
 	log_Msg "MatlabRunMode: ${MatlabRunMode}"
 	log_Msg "MotionRegression: ${MotionRegression}"
 
+
+	local p_WF="${11}"
+
 	# Naming Conventions and other variables
 	local Caret7_Command="${CARET7DIR}/wb_command"
 	log_Msg "Caret7_Command: ${Caret7_Command}"
@@ -552,6 +559,19 @@ main()
 	## and resume at the "Housekeeping related to files expected for fix_3_clean" section
 
 	local ConcatNameNoExt=$($FSLDIR/bin/remove_ext $ConcatName)  # No extension, but still includes the directory path
+
+	# check Ndist used when running MR-FIX  # TH 
+	if [ -e ${ConcatNameNoExt}_hp${hp}_wf.txt ] ; then
+		ndhpvol="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $1}'`"
+		ndhpcifti="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $2}'`"
+		ndcifti="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $3}'`"
+	elif [ -z "$p_WF" ] ; then
+		ndhpvol="`echo $p_WF | cut -d ',' -f1`"
+		ndhpcifti="`echo $p_WF | cut -d ',' -f2`"
+		ndcifti="`echo $p_WF | cut -d ',' -f3`"
+	else	
+		log_Err_Abort "ERROR: cannot find Ndist used in MR-FIX. Please use option --wf to set Ndist"
+	fi
 
 	local regenConcatHP=0
 	if [[ ! -f "${ConcatNameNoExt}_Atlas${RegString}_hp${hp}.dtseries.nii" || \
