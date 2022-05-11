@@ -1,11 +1,10 @@
 #!/bin/bash
-
 #
-# # ReApplyMultiRunFixPipeline.sh
+# # ReApplyFixMultiRunPipeline.sh
 #
 # ## Copyright Notice
 #
-# Copyright (C) 2017 The Human Connectome Project/Connectome Coordination Facility
+# Copyright (C) 2017-2019 The Human Connectome Project/Connectome Coordination Facility
 #
 # * Washington University in St. Louis
 # * University of Minnesota
@@ -32,14 +31,11 @@
 #  Show usage information for this script
 # ------------------------------------------------------------------------------
 
-usage()
+show_usage()
 {
-	local script_name
-	script_name=$(basename "${0}")
-
 	cat <<EOF
 
-${script_name}: ReApplyFix Pipeline for MultiRun ICA+FIX
+${g_script_name}: ReApplyFix Pipeline for MultiRun ICA+FIX
 
 This script has two purposes (both in the context of MultiRun FIX):
 1) Reapply FIX cleanup to the volume and default CIFTI (i.e., MSMSulc registered surfaces)
@@ -48,39 +44,50 @@ following manual reclassification of the FIX signal/noise components (see ApplyH
 (either for the first time, or following manual reclassification of the components).
 Only one of these two purposes can be accomplished per invocation.
 
-Usage: ${script_name} PARAMETER...
+Usage: ${g_script_name} PARAMETER...
 
 PARAMETERs are [ ] = optional; < > = user supplied value
 
-  Note: The PARAMETERs can be specified positinally (i.e. without using the --param=value
+  Note: The PARAMETERs can be specified positionally (i.e. without using the --param=value
         form) by simply specifying all values on the command line in the order they are
 		listed below.
 
-		e.g. ${script_name} <path to study folder> <subject ID> <fMRINames> ...
+		e.g. ${g_script_name} <path to study folder> <subject ID> <fMRINames> ...
 
-   [--help] : show this usage information and exit
+  [--help] : show this usage information and exit
    --path=<path to study folder> OR --study-folder=<path to study folder>
    --subject=<subject ID> (e.g. 100610)
-   --fmri-names=<fMRI Names> @-separated list of fMRI file names 
-     (e.g. /path/to/study/100610/MNINonLinear/Results/tfMRI_RETCCW_7T_AP/tfMRI_RETCCW_7T_AP.nii.gz@/path/to/study/100610/MNINonLinear/Results/tfMRI_RETCW_7T_PA/tfMRI_RETCW_7T_PA.nii.gz)
-   --concat-fmri-name=<concatenated fMRI scan file name>
-     (e.g. /path/to/study/100610/MNINonLinear/Results/tfMRI_7T_RETCCW_AP_RETCW_PA/tfMRI_7T_RETCCW_AP_RETCW_PA.nii.gz)
-   --high-pass=<num> the HighPass variable used in Multi-run ICA+FIX (e.g. 2000)
+   --fmri-names=<fMRI names> an '@' symbol separated list of fMRI scan names (no whitespace)
+     (e.g. rfMRI_REST1_LR@rfMRI_REST1_RL) (Do not include path, nifti extension, or the 'hp' string)
+     All runs are assumed to have the same repetition time (TR).
+   --concat-fmri-name=<root name of the concatenated fMRI scan file> (Do not include path, nifti extension, or the 'hp' string)
+   --high-pass=<high-pass filter used in multi-run ICA+FIX>
    [--reg-name=<surface registration name> defaults to ${G_DEFAULT_REG_NAME}. (Use NONE for MSMSulc registration)
    [--low-res-mesh=<low res mesh number>] defaults to ${G_DEFAULT_LOW_RES_MESH}
    [--matlab-run-mode={0, 1, 2}] defaults to ${G_DEFAULT_MATLAB_RUN_MODE}
-    0 = Use compiled MATLAB
-    1 = Use interpreted MATLAB
-    2 = Use interpreted Octave
+     0 = Use compiled MATLAB
+     1 = Use interpreted MATLAB
+     2 = Use interpreted Octave
    [--motion-regression={TRUE, FALSE}] defaults to ${G_DEFAULT_MOTION_REGRESSION}
-   [-wf=<ndisthpvol>,<ndisthpcifti>,<ndistcifti>] Ndist for 'hp'ed volume, 'hp'ed CIFTI and concatenated cifti
+   [--delete-intermediates={TRUE, FALSE}] defaults to ${G_DEFAULT_DELETE_INTERMEDIATES}
+     If TRUE, deletes both the concatenated high-pass filtered and non-filtered timeseries files
+     that are prerequisites to FIX cleaning.
+     (The concatenated, hpXX_clean timeseries files are preserved for use in downstream scripts).
 
 EOF
 }
 
+# Establish defaults
+G_DEFAULT_REG_NAME="NONE"
+G_DEFAULT_LOW_RES_MESH=32
+G_DEFAULT_MATLAB_RUN_MODE=1		# Use interpreted MATLAB
+G_DEFAULT_MOTION_REGRESSION="FALSE"
+G_DEFAULT_DELETE_INTERMEDIATES="FALSE"
+
 # ------------------------------------------------------------------------------
 #  Get the command line options for this script.
 # ------------------------------------------------------------------------------
+
 get_options()
 {
 	local arguments=("$@")
@@ -89,16 +96,19 @@ get_options()
 	unset p_StudyFolder      # ${1}
 	unset p_Subject          # ${2}
 	unset p_fMRINames        # ${3}
-	unset p_ConcatfMRIName   # ${4}
+	unset p_ConcatName       # ${4}
 	unset p_HighPass         # ${5}
-	p_RegName="None"          # ${6}
+	unset p_RegName          # ${6}
 	unset p_LowResMesh       # ${7}
 	unset p_MatlabRunMode    # ${8}
 	unset p_MotionRegression # ${9}
 
 	# set default values
+	p_RegName=${G_DEFAULT_REG_NAME}
 	p_LowResMesh=${G_DEFAULT_LOW_RES_MESH}
 	p_MatlabRunMode=${G_DEFAULT_MATLAB_RUN_MODE}
+	p_MotionRegression=${G_DEFAULT_MOTION_REGRESSION}
+    p_DeleteIntermediates=${G_DEFAULT_DELETE_INTERMEDIATES}
 
 	# parse arguments
 	local num_args=${#arguments[@]}
@@ -110,8 +120,8 @@ get_options()
 
 		case ${argument} in
 			--help)
-				usage
-				exit 1
+				show_usage
+				exit 0
 				;;
 			--path=*)
 				p_StudyFolder=${argument#*=}
@@ -130,7 +140,7 @@ get_options()
 				index=$(( index + 1 ))
 				;;
 			--concat-fmri-name=*)
-				p_ConcatfMRIName=${argument#*=}
+				p_ConcatName=${argument#*=}
 				index=$(( index + 1 ))
 				;;
 			--high-pass=*)
@@ -153,13 +163,16 @@ get_options()
 				p_MotionRegression=${argument#*=}
 				index=$(( index + 1 ))
 				;;
+			--delete-intermediates=*)
+				p_DeleteIntermediates=${argument#*=}
+				index=$(( index + 1 ))
+				;;
 			--wf=*)
 				p_WF=${argument#*=}
 				index=$(( index + 1 ))
 				;;
-
 			*)
-				usage
+				show_usage
 				log_Err_Abort "unrecognized option: ${argument}"
 				;;
 		esac
@@ -189,11 +202,11 @@ get_options()
 		log_Msg "fMRI Names: ${p_fMRINames}"
 	fi
 
-	if [ -z "${p_ConcatfMRIName}" ]; then
+	if [ -z "${p_ConcatName}" ]; then
 		log_Err "Concatenated fMRI scan name (--concat-fmri-name=) required"
 		error_count=$(( error_count + 1 ))
 	else
-		log_Msg "Concatenated fMRI scan name: ${p_ConcatfMRIName}"
+		log_Msg "Concatenated fMRI scan name: ${p_ConcatName}"
 	fi
 	
 	if [ -z "${p_HighPass}" ]; then
@@ -264,10 +277,17 @@ get_options()
 	fi
 
 	if [ -z "${p_MotionRegression}" ]; then
-		log_Err "motion correction setting (--motion-regression=) required"
+		log_Err "motion regression setting (--motion-regression=) required"
 		error_count=$(( error_count + 1 ))
 	else
 		log_Msg "Motion Regression: ${p_MotionRegression}"
+	fi
+
+	if [ -z "${p_DeleteIntermediates}" ]; then
+		log_Err "delete intermediates setting (--delete-intermediates=) required"
+		error_count=$(( error_count + 1 ))
+	else
+		log_Msg "Delete Intermediates: ${p_DeleteIntermediates}"
 	fi
 
 	if [ ${error_count} -gt 0 ]; then
@@ -275,6 +295,11 @@ get_options()
 	fi	
 }
 
+#
+# NOTE:
+#   Don't echo anything in this function other than the last echo
+#   that outputs the return value
+#
 determine_old_or_new_fsl()
 {
 	local fsl_version=${1}
@@ -345,13 +370,16 @@ show_tool_versions()
 	fsl_version_get fsl_ver
 	log_Msg "FSL version: ${fsl_ver}"
 
+	# Show specific FIX version, if available
+	if [ -f ${FSL_FIXDIR}/fixversion ]; then
+		fixversion=$(cat ${FSL_FIXDIR}/fixversion )
+		log_Msg "FIX version: $fixversion"
+	fi
+
 	old_or_new_version=$(determine_old_or_new_fsl ${fsl_ver})
 	if [ "${old_or_new_version}" == "OLD" ] ; then
-		#log_Err_Abort "FSL version 6.0.1 or greater is required."
-		log_Msg "Warining: FSL version 6.0.1 or greater is required."
+		log_Err_Abort "FSL version 6.0.1 or greater is required."
 	fi
-	HOST=`hostname`
-	log_Msg "Host: $HOST"
 }
 
 # ------------------------------------------------------------------------------
@@ -368,6 +396,21 @@ have_hand_reclassification()
 	[ -e "${StudyFolder}/${Subject}/MNINonLinear/Results/${fMRIName}/${fMRIName}_hp${HighPass}.ica/HandNoise.txt" ]
 }
 
+function interpret_as_bool()
+{
+    case $(echo "$1" | tr '[:upper:]' '[:lower:]') in
+    (true | yes | 1)
+        echo 1
+        ;;
+    (false | no | none | 0)
+        echo 0
+        ;;
+    (*)
+        log_Err_Abort "error: '$1' is not valid for this argument, please use TRUE or FALSE"
+        ;;
+    esac
+}
+
 # ------------------------------------------------------------------------------
 #  Main processing of script.
 # ------------------------------------------------------------------------------
@@ -382,19 +425,16 @@ main()
 		local this_script_dir=$(dirname "$0")
 	fi
 
-	# Show tool versions
-	show_tool_versions
-
 	log_Msg "Starting main functionality"
 
 	# Retrieve positional parameters
 	local StudyFolder="${1}"
 	local Subject="${2}"
 	local fMRINames="${3}"
-	local ConcatfMRIName="${4}"
+	local ConcatName="${4}"
 	local HighPass="${5}"
 
-	local RegName="${6}"
+	local RegName
 	if [ -z "${6}" ]; then
 		RegName=${G_DEFAULT_REG_NAME}
 	else
@@ -417,9 +457,16 @@ main()
 
 	local MotionRegression
 	if [ -z "${9}" ]; then
-		MotionRegression="${G_DEFAULT_MOTION_REGRESSION}"
+		MotionRegression=$(interpret_as_bool "${G_DEFAULT_MOTION_REGRESSION}")
 	else
-		MotionRegression="${9}"
+		MotionRegression=$(interpret_as_bool "${9}")
+	fi
+
+	local DeleteIntermediates
+	if [ -z "${10}" ]; then
+		DeleteIntermediates=$(interpret_as_bool "${G_DEFAULT_DELETE_INTERMEDIATES}")
+	else
+		DeleteIntermediates=$(interpret_as_bool "${10}")
 	fi
 
 	# Turn MotionRegression into an appropriate numeric value for fix_3_clean
@@ -438,7 +485,7 @@ main()
 	log_Msg "StudyFolder: ${StudyFolder}"
 	log_Msg "Subject: ${Subject}"
 	log_Msg "fMRINames: ${fMRINames}"
-	log_Msg "ConcatfMRIName: ${ConcatfMRIName}"
+	log_Msg "ConcatName: ${ConcatName}"
 	log_Msg "HighPass: ${HighPass}"
 	log_Msg "RegName: ${RegName}"
 	log_Msg "LowResMesh: ${LowResMesh}"
@@ -446,7 +493,7 @@ main()
 	log_Msg "MotionRegression: ${MotionRegression}"
 
 
-	local p_WF="${10}"
+	local p_WF="${11}"
 
 	# Naming Conventions and other variables
 	local Caret7_Command="${CARET7DIR}/wb_command"
@@ -464,20 +511,25 @@ main()
 	fi
 
 	log_Msg "RegString: ${RegString}"
-	
-	export FSL_FIX_CIFTIRW="${HCPPIPEDIR}/global/matlab"
-	export FSL_FIX_WBC="${Caret7_Command}"
+
+	# For INTERPRETED MODES, make sure that matlab/octave has access to the functions it needs.
+	# normalise.m (needed by functionhighpassandvariancenormalize.m) is in '${HCPPIPEDIR}/global/matlab'
+	# Since we are NOT using the ${FSL_FIXDIR}/call_matlab.sh script to invoke matlab (unlike 'hcp_fix_multi_run')
+	# we need to explicitly add ${FSL_FIXDIR} (all the fix-related functions)
+	# and ${FSL_MATLAB_PATH} (e.g., read_avw.m, save_avw.m) to the matlab path as well.
+	# Several additional necessary environment variables (e.g., ${FSL_FIX_CIFTIRW} and ${FSL_FIX_WBC})
+	# are set in ${FSL_FIXDIR}/settings.sh, which is sourced below for interpreted modes.
+	# Note that fix_3_clean.m *appends* ${FSL_FIX_CIFTIRW} to the matlab path (i.e., the ciftiopen.m, ciftisave.m functions).
+	# BUT the CIFTI I/O functions are also now included within '${HCPPIPEDIR}/global/matlab' as well.
+	# AND since 'addpath' *prepends* to the matlab path, the versions in '${HCPPIPEDIR}/global/matlab' will therefore take precedence!
 	export FSL_MATLAB_PATH="${FSLDIR}/etc/matlab"
-	export FSL_FIXDIR="/mnt/pub/devel/bcil/fix1.06"
+	local ML_PATHS="addpath('${FSL_FIXDIR}'); addpath('${FSL_MATLAB_PATH}'); addpath('${HCPPIPEDIR}/global/matlab'); addpath('${this_script_dir}/scripts');"
 
-	local ML_PATHS="addpath('${FSL_MATLAB_PATH}'); addpath('${FSL_FIX_CIFTIRW}'); addpath('${FSL_FIXDIR}'); addpath('${HCPPIPEDIR}/global/matlab'); addpath('${this_script_dir}/scripts');"
-
-	# Make appropriate files if they don't exist
-
+	# Some defaults
 	local aggressive=0
 	local newclassification=0
-	local DoVol=0
 	local hp=${HighPass}
+	local DoVol=0
 	local fixlist=".fix"
 
 	# ConcatName (${4}) is expected to NOT include path info, or a nifti extension; make sure that is indeed the case
@@ -485,29 +537,43 @@ main()
 	# But, then generate the absolute path so we can reuse the code from hcp_fix_multi_run
 	#ConcatName="${StudyFolder}/${Subject}/MNINonLinear/Results/${ConcatNameOnly}/${ConcatNameOnly}"
 
-	if have_hand_reclassification ${StudyFolder} ${Subject} `basename ${ConcatfMRIName}` ${hp} 
+    # If we have a hand classification and no regname, reapply fix to the volume as well
+	if have_hand_reclassification ${StudyFolder} ${Subject} ${ConcatNameOnly} ${hp}
 	then
 		fixlist="HandNoise.txt"
+		#TSC: if regname (which applies to the surface) isn't NONE, assume the hand classification was previously already applied to the volume data
 		if [[ "${RegName}" == "NONE" ]]
 		then
 			DoVol=1
 		fi
 	fi
+	# WARNING: fix_3_clean doesn't actually do anything different based on the value of DoVol (its 5th argument).
+	# Rather, if a 5th argument is present, fix_3_clean does NOT apply cleanup to the volume, *regardless* of whether
+	# that 5th argument is 0 or 1 (or even a non-sensical string such as 'foo').
+	# It is for that reason that the code below needs to use separate calls to fix_3_clean, with and without DoVol
+	# as an argument, rather than simply passing in the value of DoVol as set within this script.
+	# Not sure if/when this non-intuitive behavior of fix_3_clean will change, but this is accurate as of fix1.067
+	# UPDATE (11/8/2019): As of FIX 1.06.12, fix_3_clean interprets its 5th argument ("DoVol") in the usual boolean
+	# manner. However, since we already had a work-around to this problem, we will leave the code unchanged so that
+	# we don't need to add a FIX version dependency to the script.
+
 	log_Msg "Use fixlist=$fixlist"
 	
 	local fmris=${fMRINames//@/ } # replaces the @ that combines the filenames with a space
 	log_Msg "fmris: ${fmris}"
 
-	local ConcatName=${ConcatfMRIName}
+	local ConcatName=${ConcatName}
 	log_Msg "ConcatName: ${ConcatName}"
 
 
 	DIR=`pwd`
 	log_Msg "PWD : $DIR"
-	## MPH: High level "master" conditional that checks whether the files necessary for fix_3_clean
+
+	## MPH: Create a high level variable that checks whether the files necessary for fix_3_clean
 	## already exist (i.e., reapplying FIX cleanup following manual classification).
 	## If so, we can skip all the following looping through individual runs and concatenation, 
 	## and resume at the "Housekeeping related to files expected for fix_3_clean" section
+
 	local ConcatNameNoExt=$($FSLDIR/bin/remove_ext $ConcatName)  # No extension, but still includes the directory path
 
 # check Ndist used when running MR-FIX  # TH 
@@ -523,8 +589,9 @@ else
 	log_Err_Abort "ERROR: cannot find Ndist used in MR-FIX. Please use option --wf to set Ndist"
 fi
 
-if [[ -f ${ConcatNameNoExt}_Atlas${RegString}_hp${hp}.dtseries.nii ]]; then
-	log_Warn "${ConcatNameNoExt}_Atlas${RegString}_hp${hp}.dtseries.nii already exists."
+	if [[ ! -f "${ConcatNameNoExt}_Atlas${RegString}_hp${hp}.dtseries.nii" || \
+			( $DoVol == "1" && `$FSLDIR/bin/imtest "${ConcatNameNoExt}_hp${hp}"` != 1 ) ]]
+	then	log_Warn "${ConcatNameNoExt}_Atlas${RegString}_hp${hp}.dtseries.nii already exists."
 	if (( DoVol && $(${FSLDIR}/bin/imtest "${ConcatNameNoExt}_hp${hp}") )); then
 			log_Warn "$($FSLDIR/bin/imglob -extension ${ConcatNameNoExt}_hp${hp}) already exists."
 	fi
@@ -1043,7 +1110,7 @@ if [[ ${1} == --* ]]; then
 
 	# Invoke main functionality
 	#     ${1}               ${2}           ${3}             ${4}                  ${5}            ${6}           ${7}              ${8}              ${9}
-	main "${p_StudyFolder}" "${p_Subject}" "${p_fMRINames}" "${p_ConcatfMRIName}" "${p_HighPass}" "${p_RegName}" "${p_LowResMesh}" "${p_MatlabRunMode}" "${p_MotionRegression} ${p_WF}"
+	main "${p_StudyFolder}" "${p_Subject}" "${p_fMRINames}" "${p_ConcatName}" "${p_HighPass}" "${p_RegName}" "${p_LowResMesh}" "${p_MatlabRunMode}" "${p_MotionRegression} ${p_WF}"
 
 
 else
