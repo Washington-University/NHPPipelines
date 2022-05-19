@@ -268,20 +268,6 @@ function interpret_as_bool()
 }
 
 #############################################################
-hp=$2
-log_Msg "hp: ${hp}"
-
-unset TrainingData
-#if [ $# -ge 4 ] ; then
-#TrainingData=$4
-#fi
-
-fmris=`echo ${1} | sed 's/@/ /g'` # replaces the @ that combines the filenames with ' '
-log_Msg "fmris: ${fmris}"
-ConcatName="${3}"
-log_Msg "ConcatName: ${ConcatName}"
-doMotionRegression="$4"
-log_Msg "doMotionRegression: $doMotionRegression"
 
 
 # RData
@@ -309,6 +295,60 @@ elif [ $Species = 2 ] ; then
 	if [ "$FixThresh" = "" ] ; then
 		FixThresh=40
 	fi
+fi
+
+## ---------------------------------------------------------------------------
+## Check whether FSL version is recent enough
+## ---------------------------------------------------------------------------
+
+old_or_new_version=$(determine_old_or_new_fsl ${fsl_ver})
+if [ "${old_or_new_version}" == "OLD" ] ; then
+	log_Err_Abort "FSL version 6.0.1 or greater is required."
+fi
+
+## ---------------------------------------------------------------------------
+## Parse and check parameters
+## ---------------------------------------------------------------------------
+
+fmris=`echo ${1} | sed 's/@/ /g'` # replaces the @ that combines the filenames with ' '
+
+hp=$2
+if [[ "${hp}" == "0" ]]; then
+	pdFlag=TRUE
+fi
+if [[ "${hp}" == pd* ]]; then
+	hpNum=${hp:2}
+	pdFlag=TRUE
+	if (( hpNum > 5 )); then
+		log_Err_Abort "Polynomial detrending of order ${hpNum} is not allowed (may not be numerically stable); Use 5th order or less"
+	fi
+else
+	hpNum=${hp}
+fi
+if ! [[ "${hpNum}" =~ ^[-]?[0-9]+$ ]]; then
+	log_Err_Abort "highpass value of ${hp} is not valid"
+fi
+if [[ $(echo "${hpNum} < 0" | bc) == "1" ]]; then  #Logic of this script does not support negative hp values
+    log_Err_Abort "highpass value must not be negative"
+fi
+
+ConcatName="${3}"
+
+doMotionRegression=$(interpret_as_bool "$4")
+
+unset TrainingData
+unset FixThresh
+if [ $# -ge 5 ] ; then
+	TrainingData=$5
+	FixThresh=$6
+fi
+DeleteIntermediates=FALSE
+if (($# >= 7))
+then
+    DeleteIntermediates=$(interpret_as_bool "$7")
+fi
+if [ -z "${FixThresh}" ]; then
+	FixThresh=10
 fi
 
 ndhpvol="`echo $WF | cut -d ',' -f1`"
