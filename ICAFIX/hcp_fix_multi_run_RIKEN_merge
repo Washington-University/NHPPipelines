@@ -134,10 +134,6 @@ else
 fi
 
 # All fix settings are held in the settings.sh file - edit this file to suit your setup
-source ${FSL_FIXDIR}/settings.sh
-HOST=$(hostname)
-log_Msg "Host: $HOST"
-log_Msg "LD_LIBRARY_PATH:$LD_LIBRARY_PATH"
 # Default settings file that comes with fix isn't "ERR" clean, so disable temporarily
 debug_disable_trap
 source "${FSL_FIXDIR}/settings.sh"
