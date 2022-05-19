@@ -33,7 +33,7 @@
 show_usage() {
     cat <<EOF
 
-hcp_fix_multi_run <4D_FMRI_data> <highpass> <concat_name> <do_motion_regression> [<TrainingFile>] [<FixThreshold>] [<DeleteIntermediates>]
+hcp_fix_multi_run <4D_FMRI_data> <highpass> <concat_name> <do_motion_regression> [<TrainingFile>] [<FixThreshold>] [<DeleteIntermediates>] [<Optional single character arguments>]
 
    Apply FIX cleaning to a concatenated set of input files.
 
@@ -78,6 +78,18 @@ hcp_fix_multi_run <4D_FMRI_data> <highpass> <concat_name> <do_motion_regression>
 e.g.  hcp_fix_multi_run rfMRI_REST1_RL/rfMRI_REST1_RL.nii.gz@rfMRI_REST1_RL/rfMRI_REST1_RL.nii.gz pd2 rfMRI_REST1_RL_LR/rfMRI_REST1_RL_LR FALSE
         (if launching the script from the '\${StudyFolder}/\${Subject}/MNINonLinear/Results' directory)
 
+	Optional single character arguments:
+		-t <TrainingFile> 	: Training file (default is HCP_Style_Single_Multirun_Dedrift.RData for Human, NHPHCP_Macaque.RData for Macaque, 	
+					  NHPHCP_Marmoset.RData for Marmoset)
+		-d <dim>		: Dimension for group-ICA (default is estimated by icaDIM)
+		-s <num>		: Species - 0: Human (default), 1: Macaque, 2: Marmoset
+		-r <num>		: Run mode - 0: Run all (PreICA+FIX, ICA+FIX, PostICA+FIX, default), 1: Run ICA,FIX and PostICA+FIX, 
+					  2: Run FIX and PostICA+FIX, 3: Run PostICA+FIX)
+		-g			: use surface geometry FIX
+		-w <num>,<num>,<num>    : Wishart filter Ndist (default is 2,3,3)
+		-T <num>		: FIX threshold 0 to 100 (%) (default is 10 in HUman, 40 in Macaque and Marmoset)
+		-h 			: help message
+		-n 			: Do not overwrite hp if already calculated
 EOF
 }
 
@@ -350,6 +362,32 @@ fi
 if [ -z "${FixThresh}" ]; then
 	FixThresh=10
 fi
+
+#################################################
+# Inserted by Takuya Hayashi, July 2018
+shift;shift;shift;shift
+Species=0
+RunMode=0
+WF="2,3,3"
+OW="1"
+FixThresh=""
+SURFGEOM=0
+UserDim=NONE;
+while getopts t:d:s:r:w:nT:hg OPT
+ do
+ case "$OPT" in 
+   "t" ) TrainingData="$OPTARG";;
+   "d" ) UserDim="$OPTARG";;
+   "s" ) Species="$OPTARG";;
+   "r" ) RunMode="$OPTARG";;
+   "w" ) WF="$OPTARG";;
+   "n" ) OW=0;;
+   "T" ) FixThresh="$OPTARG";;
+   "g" ) SURFGEOM=1;;
+   "h" ) usage_exit;;
+    * )  usage_exit;;
+ esac
+done;
 
 ndhpvol="`echo $WF | cut -d ',' -f1`"
 ndhpcifti="`echo $WF | cut -d ',' -f2`"
