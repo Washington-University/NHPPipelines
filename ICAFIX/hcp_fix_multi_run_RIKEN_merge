@@ -1,8 +1,9 @@
 #!/bin/bash
 
-#   hcp_fix_multi_run - wrapper script for FIX, for HCP pipelines to clean multiple fMRI runs at a time (useful for cleaning shorter runs)
+#   hcp_fix_multi_run - wrapper script for FIX, for HCP pipelines to clean multiple fMRI runs at a time
+#   (useful for cleaning shorter runs)
 #
-#   Requires FIX version 1.065 or later and FSL 6.0 melodic version
+#   Requires FIX version 1.067 or later and FSL 6.0 melodic version
 #
 #   Stephen Smith and Matthew F. Glasser
 #
@@ -13,34 +14,151 @@
 #   1) Changes to support 7T ICAFIX processing based on changes originally made by Keith Jamison <kjamison@umn.edu>
 #   2) Changes to log output messages to aid in debugging 
 #
+#   Changes by Tim Coalson
+#
+#   1) use melodic from $PATH by default, to make it easier to replace the default version FSL ships with
+#
 #   Changes by Takuya Hayashi
-#   1) Changes to create species-specific vein maps
-#   2) Changes to feature extraction of surface geometrics
+#
+#   1) use brain mask in melodic to reduce memory usage (helps get around bad default compilation operations)
+#
+#   Changes by Michael Harms
+#
+#   1) Improvements to script readability and consistency
+#   2) Addition of a polynomial detrend option
+#   3) Addition of FIX threshold as optional parameter
 
-set -e
+#############################################################
 
-DEBUG="TRUE"
-g_script_name=$(basename "${0}")
+show_usage() {
+    cat <<EOF
 
-if [[ $HCPPIPEDIR != "" ]] ; then
-  echo "HCPPIPEDIR: ${HCPPIPEDIR}"
-  source  ${HCPPIPEDIR}/global/scripts/debug.shlib
-else
-  echo "ERORR: cannot find HCPPIPEDIR"
-  exit
+hcp_fix_multi_run <4D_FMRI_data> <highpass> <concat_name> <do_motion_regression> [<TrainingFile>] [<FixThreshold>] [<DeleteIntermediates>]
+
+   Apply FIX cleaning to a concatenated set of input files.
+
+  <4D_FMRI_data>:
+     List of the individual fMRI runs to concatenate, joined with '@' symbol (no whitespace)
+     Relative path (from launching directory) allowed (nifti extension optional)
+     All runs are assumed to have the same repetition time (TR).
+
+  <highpass>: 
+     If > 0, is the temporal highpass full-width (2*sigma), in seconds, to apply using 'fslmaths -bptf'.
+     If a string "pd#", where # is an integer, applies polynomial detrending of order #.
+        Use "pd1" for a linear detrend, "pd2" for a quadratic detrend, etc.
+        File names will include "_hppd#".
+     If = 0, a linear detrend is applied, same as "pd1", but file names will instead include "_hp0".
+     To mimic detrending-like behaviour using the fslmaths approach, set <highpass> to 2000.
+     (Note that 'fslmaths -bptf' is much slower than the regression based polynomial detrending).
+
+  <concat_name>:
+     Name (including relative or absolute path) to give to the concatenated output files
+
+  <do_motion_regression>:
+     Controls whether to regress motion parameters as part of the cleaning.
+     Must be specified, use TRUE or FALSE
+
+  [<TrainingFile>] (optional)
+     Defaults to "HCP_hp<highpass>.RData"
+     In the case of polynomial detrending, will use HCP_hp2000.RData
+
+  [<FixThreshold>] (optional)
+     Threshold setting in FIX that controls the sensitivity/specificity tradeoff.
+     Default = 10.
+     To specify a threshold, <TrainingFile> becomes a mandatory argument.
+
+  [<DeleteIntermediates>] (optional)
+     If TRUE, deletes both the concatenated high-pass filtered and non-filtered timeseries files
+     that are prerequisites to FIX cleaning.
+     (The concatenated, hpXX_clean timeseries files are preserved for use in downstream scripts).
+     Default = FALSE.
+     Note, deleting intermediates is not recommended for MR FIX.
+     You must specify both <TrainingFile> and <FixThreshold> in order to specify this option.
+
+e.g.  hcp_fix_multi_run rfMRI_REST1_RL/rfMRI_REST1_RL.nii.gz@rfMRI_REST1_RL/rfMRI_REST1_RL.nii.gz pd2 rfMRI_REST1_RL_LR/rfMRI_REST1_RL_LR FALSE
+        (if launching the script from the '\${StudyFolder}/\${Subject}/MNINonLinear/Results' directory)
+
+EOF
+}
+
+if (( $# < 4 ))
+then
+    show_usage
+	exit 1
 fi
 
-# Set this before calling hcp_fix instead, to make it more flexible
-FSL_FIXDIR=$( cd $(dirname $0) ; pwd)
-export FSL_FIXDIR
-log_Msg "FSL_FIXDIR: ${FSL_FIXDIR}"
+#############################################################
+
+unset POSIXLY_CORRECT
+
+# Set global variables
+g_script_name=$(basename "${0}")
+
+# Verify HCPPIPEDIR environment variable is set
+if [ -z "${HCPPIPEDIR}" ]; then
+	echo "${g_script_name}: ABORTING: HCPPIPEDIR environment variable must be set"
+	exit 1
+fi
+
+#  Load function libraries
+source "${HCPPIPEDIR}/global/scripts/debug.shlib" "$@" # Debugging functions; also sources log.shlib
+source "${HCPPIPEDIR}/global/scripts/fsl_version.shlib" # Functions for getting FSL version
+
+# Verify required environment variables are set and log value
+log_Check_Env_Var HCPPIPEDIR
+log_Check_Env_Var CARET7DIR
+log_Check_Env_Var FSLDIR
+log_Check_Env_Var FSL_FIXDIR
+
+log_debugOn="" # Set to any non-empty string (e.g., "true") to turn on debugging related output
+               # Set to empty string to disable debugging related output
+
+#mac readlink doesn't have -f
+if [[ -L "$0" ]]
+then
+    this_script_dir=$(dirname "$(readlink "$0")")
+else
+    this_script_dir=$(dirname "$0")
+fi
 
 # All fix settings are held in the settings.sh file - edit this file to suit your setup
 source ${FSL_FIXDIR}/settings.sh
 HOST=$(hostname)
 log_Msg "Host: $HOST"
 log_Msg "LD_LIBRARY_PATH:$LD_LIBRARY_PATH"
-#############################################################
+# Default settings file that comes with fix isn't "ERR" clean, so disable temporarily
+debug_disable_trap
+source "${FSL_FIXDIR}/settings.sh"
+debug_enable_trap
+
+# Show HCP pipelines version
+log_Msg "Showing HCP Pipelines version"
+cat ${HCPPIPEDIR}/version.txt
+
+# Show wb_command version
+log_Msg "Showing Connectome Workbench (wb_command) version"
+${CARET7DIR}/wb_command -version
+
+# Show FSL version
+log_Msg "Showing FSL version"
+fsl_version_get fsl_ver
+log_Msg "FSL version: ${fsl_ver}"
+
+# Show specific FIX version, if available
+if [ -f ${FSL_FIXDIR}/fixversion ]; then
+	fixversion=$(cat ${FSL_FIXDIR}/fixversion )
+	log_Msg "FIX version: $fixversion"
+fi
+
+# Log FSL_FIX_MATLAB_MODE (from the settings.sh file)
+log_Msg "FSL_FIX_MATLAB_MODE: ${FSL_FIX_MATLAB_MODE}"
+
+# Override the version of FSL_FIX_WBC in settings.sh with that specified by CARET7DIR
+Caret7_Command="${CARET7DIR}/wb_command"
+FSL_FIX_WBC=${Caret7_Command}  # Used by fix_3_clean in interpreted matlab/octave mode
+
+
+	#############################################################
 
 Usage() {
     cat <<EOF
