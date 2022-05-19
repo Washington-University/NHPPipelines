@@ -413,28 +413,27 @@ log_Msg "CARET7DIR: ${CARET7DIR}"
 DIR=`pwd`
 log_Msg "PWD: $DIR"
 
-echo $fmris | tr ' ' '\n' #separates paths separated by ' '
+## ---------------------------------------------------------------------------
+## Preparation (highpass) on the individual runs
+## ---------------------------------------------------------------------------
 
-concatfmri=`basename $(remove_ext ${ConcatName})`_hp$hp
-concat_fmri_orig=`basename $(remove_ext ${ConcatName})`
-ConcatFolder=`dirname ${ConcatName}`
-
-RunPreFix () {
-
-#Loops over the files and does highpass to each of them
+#Loops over the runs and do highpass on each of them
 log_Msg "Looping over files and doing highpass to each of them"
 
 NIFTIvolMergeSTRING=""
-NIFTIvolhpMergeSTRING=""
-CIFTIMergeSTRING=""
-CIFTIhpMergeSTRING=""
-MovementTXTMergeSTRING=""
-MovementNIFTIMergeSTRING=""
-MovementNIFTIhpMergeSTRING=""
+NIFTIvolhpVNMergeSTRING=""
 SBRefVolSTRING=""
 MeanVolSTRING=""
+VNVolSTRING=""
+CIFTIMergeSTRING=""
+CIFTIhpVNMergeSTRING=""
 MeanCIFTISTRING=""
+VNCIFTISTRING=""
+MovementNIFTIMergeSTRING=""
+MovementNIFTIhpMergeSTRING=""
+MovementTXTMergeSTRING=""
 FileListSTRING="" # Added by TH May 2019
+
 for fmri in $fmris ; do  
 	log_Msg "Top of loop through fmris: fmri: ${fmri}"
 
