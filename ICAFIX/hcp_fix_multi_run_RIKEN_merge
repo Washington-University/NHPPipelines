@@ -389,19 +389,29 @@ ndhpvol="`echo $WF | cut -d ',' -f1`"
 ndhpcifti="`echo $WF | cut -d ',' -f2`"
 ndcifti="`echo $WF | cut -d ',' -f3`"
 
-log_Msg  "SPECIES=$SPECIES"
+## ---------------------------------------------------------------------------
+## Report parameters
+## ---------------------------------------------------------------------------
+
+log_Msg "fMRI Names: ${fmris}"
+log_Msg "highpass: ${hp}"
+if [[ "${hp}" == "0" ]]; then
+	log_Msg "hp=0 corresponds to a linear detrend"
+fi
+log_Msg "ConcatName: ${ConcatName}"
+log_Msg "doMotionRegression: ${doMotionRegression}"
+log_Msg "TrainingData: ${TrainingData}"
+log_Msg "FixThresh: ${FixThresh}"
+log_Msg "DeleteIntermediates: ${DeleteIntermediates}"
+log_Msg "SPECIES: ${SPECIES}"
+log_Msg "WF Ndist: ${WF}"
+log_Msg "UserDim: ${UserDim}"
+log_Msg "CARET7DIR: ${CARET7DIR}"
+
 . /mnt/pub/devel/NHPHCPPipeline/Examples/Scripts/SetUpHCPPipeline_RIKEN.sh
 
-FSL_FIX_WBC=${CARET7DIR}/wb_command
-
-log_Msg  "TrainingData=$TrainingData"
-log_Msg  "FIX threshold = $FixThresh"
-log_Msg  "WF Ndist = $WF"
-log_Msg  "UserDim = $UserDim"
-log_Msg  "CARET7DIR:$CARET7DIR"
-
-################################################
 DIR=`pwd`
+log_Msg "PWD: $DIR"
 
 echo $fmris | tr ' ' '\n' #separates paths separated by ' '
 
