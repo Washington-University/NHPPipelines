@@ -160,77 +160,96 @@ FSL_FIX_WBC=${Caret7_Command}  # Used by fix_3_clean in interpreted matlab/octav
 
 	#############################################################
 
-Usage() {
-    cat <<EOF
+### Support Functions
 
-Usage: hcp_fix_multi_run <4D_FMRI_data(s)> <highpass> <concat_name> <do_motion_regression> [options]
+# NOTE:
+#   Don't echo anything in this function other than the last echo
+#   that outputs the return value
+#
+determine_old_or_new_fsl()
+{
+	local fsl_version=${1}
+	local old_or_new
+	local fsl_version_array
+	local fsl_primary_version
+	local fsl_secondary_version
+	local fsl_tertiary_version
 
-	Compulsory arguments:
-		<4D_FMRI_data(s)> 	: fmrinames in absolute path separated by @
-		<highpass> 		: temporal highpass full-width (2*sigma) in seconds. for detrending-like behaviour, set <highpass> to 2000
-		<concat_name>           : output concat fmriname in absolute path
-		<do_motion_regression> 	: true or false
+	# parse the FSL version information into primary, secondary, and tertiary parts
+	fsl_version_array=(${fsl_version//./ })
 
-	Optional arguments:
-		-t <TrainingFile> 	: Training file (default is HCP_Style_Single_Multirun_Dedrift.RData for Human, NHPHCP_Macaque.RData for Macaque, 	
-					  NHPHCP_Marmoset.RData for Marmoset)
-		-d <dim>		: Dimension for group-ICA (default is estimated by icaDIM)
-		-s <num>		: Species - 0: Human (default), 1: Macaque, 2: Marmoset
-		-r <num>		: Run mode - 0: Run all (PreICA+FIX, ICA+FIX, PostICA+FIX, default), 1: Run ICA,FIX and PostICA+FIX, 
-					  2: Run FIX and PostICA+FIX, 3: Run PostICA+FIX)
-		-g			: use surface geometry FIX
-		-w <num>,<num>,<num>    : Wishart filter Ndist (default is 2,3,3)
-		-T <num>		: FIX threshold 0 to 100 (%) (default is 10 in HUman, 40 in Macaque and Marmoset)
-		-h 			: help message
-		-n 			: Do not overwrite hp if already calculated
-EOF
-    exit 1
+	fsl_primary_version="${fsl_version_array[0]}"
+	fsl_primary_version=${fsl_primary_version//[!0-9]/}
+	
+	fsl_secondary_version="${fsl_version_array[1]}"
+	fsl_secondary_version=${fsl_secondary_version//[!0-9]/}
+	
+	fsl_tertiary_version="${fsl_version_array[2]}"
+	fsl_tertiary_version=${fsl_tertiary_version//[!0-9]/}
+
+	# determine whether we are using "OLD" or "NEW" FSL 
+	# 6.0.0 and below is "OLD"
+	# 6.0.1 and above is "NEW"
+	
+	if [[ $(( ${fsl_primary_version} )) -lt 6 ]] ; then
+		# e.g. 4.x.x, 5.x.x
+		old_or_new="OLD"
+	elif [[ $(( ${fsl_primary_version} )) -gt 6 ]] ; then
+		# e.g. 7.x.x
+		old_or_new="NEW"
+	else
+		# e.g. 6.x.x
+		if [[ $(( ${fsl_secondary_version} )) -gt 0 ]] ; then
+			# e.g. 6.1.x
+			old_or_new="NEW"
+		else
+			# e.g. 6.0.x
+			if [[ $(( ${fsl_tertiary_version} )) -lt 1 ]] ; then
+				# e.g. 6.0.0
+				old_or_new="OLD"
+			else
+				# e.g. 6.0.1, 6.0.2, 6.0.3 ...
+				old_or_new="NEW"
+			fi
+		fi
+	fi
+
+	echo ${old_or_new}
 }
-
-[ "$4" = "" ] && Usage
-
-unset POSIXLY_CORRECT
 
 demeanMovementRegressors() {
 	In=${1}
-	log_Msg "demeanMovementRegressors: In: ${In}"
+	log_Debug_Msg "demeanMovementRegressors: In: ${In}"
 	Out=${2}
-	log_Msg "demeanMovementRegressors: Out: ${Out}"
-	log_Msg "demeanMovementRegressors: getting nCols"
+	log_Debug_Msg "demeanMovementRegressors: Out: ${Out}"
+	log_Debug_Msg "demeanMovementRegressors: getting nCols"
 	nCols=$(head -1 ${In} | wc -w)
 	
-	log_Msg "demeanMovementRegressors: nCols: ${nCols}"
-	log_Msg "demeanMovementRegressors: getting nRows"
+	log_Debug_Msg "demeanMovementRegressors: nCols: ${nCols}"
+	log_Debug_Msg "demeanMovementRegressors: getting nRows"
 	nRows=$(wc -l < ${In})
-	log_Msg "demeanMovementRegressors: nRows: ${nRows}"
-
-	cat ${In} | awk '{for(i=1;i<=NF;i++) {sum[i]+=$i ; demean[NR,i]=$i}} END {for(i=1;i<=NR;i++) {for(j=1;j<=NF;j++) { printf "\t%10.6f",demean[i,j]-=(sum[j]/NR);} print ""}}' > ${Out}
-
-	#AllOut=""
-	#c=1
-	#while [ ${c} -le ${nCols} ] ; do
-	#	ColIn=`cat ${In} | sed 's/  / /g' | sed 's/  / /g' | sed 's/^ //g'| cut -d " " -f ${c}`
-	#	valsum=0
-	#	r=1
-	#	while [ ${r} -le ${nRows} ] ; do
-	#		val=`echo "${ColIn}" | head -${r} | tail -1`
-	#		valsum=`echo ${valsum} + ${val} | bc -l`
-	#		r=$((${r}+1))
-	#	done
-	#	valmean=`echo ${valsum} / ${r} | bc -l`
-	#	ColOut=""
-	#	r=1
-	#	while [ ${r} -le ${nRows} ] ; do
-	#		val=`echo "${ColIn}" | head -${r} | tail -1`
-	#		newval=`echo "${val} - ${valmean}" | bc -l`
-	#		ColOut=`echo ${ColOut} $(printf "%10.6f" $newval)`
-	#		r=$((${r}+1))
-	#	done
-	#	ColOut=`echo ${ColOut} | tr ' ' '\n'`
-	#	AllOut=`paste <(echo "${AllOut}") <(echo "${ColOut}")` #Figure out how to do this paste
-	#	c=$((${c}+1))
-	#done
-	#echo "${AllOut}" > ${Out}
+	log_Debug_Msg "demeanMovementRegressors: nRows: ${nRows}"
+	
+	AllOut=""
+	c=1
+	while (( c <= nCols )) ; do
+		ColIn=`cat ${In} | sed 's/  */ /g' | sed 's/^ //g' | cut -d " " -f ${c}`
+		bcstring=$(echo "$ColIn" | tr '\n' '+' | sed 's/\+*$//g')
+		valsum=$(echo "$bcstring" | bc -l)
+		valmean=$(echo "$valsum / $nRows" | bc -l)
+		ColOut=""
+		r=1
+		while (( r <= nRows )) ; do
+			val=`echo "${ColIn}" | head -${r} | tail -1`
+			newval=`echo "${val} - ${valmean}" | bc -l`
+			ColOut=`echo ${ColOut} $(printf "%10.6f" $newval)`
+			r=$((r+1))
+		done
+		ColOut=`echo ${ColOut} | tr ' ' '\n'`
+		AllOut=`paste <(echo "${AllOut}") <(echo "${ColOut}")`
+		c=$((c+1))
+	done
+	echo "${AllOut}" > ${Out}
 }
 
 function interpret_as_bool()
@@ -248,6 +267,7 @@ function interpret_as_bool()
     esac
 }
 
+#############################################################
 hp=$2
 log_Msg "hp: ${hp}"
 
