@@ -282,31 +282,7 @@ ConcatName="${3}"
 log_Msg "ConcatName: ${ConcatName}"
 doMotionRegression="$4"
 log_Msg "doMotionRegression: $doMotionRegression"
-#################################################
-# Inserted by Takuya Hayashi, July 2018
-shift;shift;shift;shift
-Species=0
-RunMode=0
-WF="2,3,3"
-OW="1"
-FixThresh=""
-SURFGEOM=0
-UserDim=NONE;
-while getopts t:d:s:r:w:nT:hg OPT
- do
- case "$OPT" in 
-   "t" ) TrainingData="$OPTARG";;
-   "d" ) UserDim="$OPTARG";;
-   "s" ) Species="$OPTARG";;
-   "r" ) RunMode="$OPTARG";;
-   "w" ) WF="$OPTARG";;
-   "n" ) OW=0;;
-   "T" ) FixThresh="$OPTARG";;
-   "g" ) SURFGEOM=1;;
-   "h" ) usage_exit;;
-    * )  usage_exit;;
- esac
-done;
+
 
 # RData
 if [ $Species = 0 ] ; then
