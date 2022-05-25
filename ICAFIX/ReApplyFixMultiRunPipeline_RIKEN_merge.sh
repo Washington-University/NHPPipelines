@@ -1151,6 +1151,7 @@ fi
 ${HCPPIPEDIR}/show_version
 
 # Verify required environment variables are set and log value
+log_Check_Env_Var HCPPIPEDIR
 log_Check_Env_Var CARET7DIR
 log_Check_Env_Var FSLDIR
 log_Check_Env_Var FSL_FIXDIR
