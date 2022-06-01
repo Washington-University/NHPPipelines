@@ -1135,6 +1135,13 @@ log_Check_Env_Var FSL_FIXDIR
 # Show tool versions
 show_tool_versions
 
+# Establish default low res mesh for NHP
+if [ "$SPECIES" = "Macaque" ] ; then
+	G_DEFAULT_LOW_RES_MESH=10
+elif [ "$SPECIES" = "Marmoset" ] ; then
+	G_DEFAULT_LOW_RES_MESH=4
+fi
+	
 # Determine whether named or positional parameters are used and invoke 'main' function
 if [[ ${1} == --* ]]; then
 	# Named parameters (e.g. --parameter-name=parameter-value) are used
@@ -1144,8 +1151,8 @@ if [[ ${1} == --* ]]; then
 	get_options "$@"
 
 	# Invoke main functionality
-	#    ${1}               ${2}           ${3}             ${4}              ${5}            ${6}           ${7}              ${8}                 ${9}                    ${10}
-	main "${p_StudyFolder}" "${p_Subject}" "${p_fMRINames}" "${p_ConcatName}" "${p_HighPass}" "${p_RegName}" "${p_LowResMesh}" "${p_MatlabRunMode}" "${p_MotionRegression}" "${p_DeleteIntermediates}"
+	#    ${1}               ${2}           ${3}             ${4}              ${5}            ${6}           ${7}              ${8}                 ${9}                    ${10}                      ${11}
+	main "${p_StudyFolder}" "${p_Subject}" "${p_fMRINames}" "${p_ConcatName}" "${p_HighPass}" "${p_RegName}" "${p_LowResMesh}" "${p_MatlabRunMode}" "${p_MotionRegression}" "${p_DeleteIntermediates}" "${p_WF}"
 
 else
 	# Positional parameters are used
