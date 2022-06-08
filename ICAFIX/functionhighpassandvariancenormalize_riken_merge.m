@@ -222,7 +222,13 @@ elseif hp<0  % If no hp filtering, still need to at least demean the volumetric 
 
 end
 
-%Compute VN
+
+% NOTE: To interpret the logic of the following "Compute, Save, Apply" sections need to know that this function expects that: 
+% (1) individual run time series will be passed in with hp requested
+% (2) concatenated (multi-run) time series will be passed in with hp<0
+%% [This is a bit of hack: would be cleaner if we disentangled the operation of this function from the specific needs of 'hcp_fix_multi_run'].
+
+%% Compute VN map
 if hp>=0
     if dovol > 0
         Outcts=icaDim(cts,0,1,-1,ndhpvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform 
@@ -235,20 +241,29 @@ else
     end
 end
 
-%Save VN
+%% Save VN map
+% (Only need these for the individual runs, which, per above, are expected to be passed in with hp requested).
 if hp>=0
     if dovol > 0
-	    save_avw(reshape(Outcts.noise_unst_std,ctsX,ctsY,ctsZ,1),[fmri '_hp' num2str(hp) '_vn.nii.gz'],'f',[1 1 1 1]);
-	    call_fsl(['fslcpgeom ' fmri '_mean.nii.gz ' fmri '_hp' num2str(hp) '_vn.nii.gz -d']);
-    end 
+       fname=[fmri hpstring '_vn.nii.gz'];
+        vnfull=zeros(ctsX*ctsY*ctsZ,1, 'single');
+        vnfull(ctsmask)=Outcts.noise_unst_std;
+          
+        save_avw(reshape(vnfull,ctsX,ctsY,ctsZ,1),fname,'f',[1 1 1 1]); 
+        clear vnfull;
+        call_fsl(['fslcpgeom ' fmri '_mean.nii.gz ' fname ' -d']);
+      end
 
     VN=BO;
     VN.cdata=OutBO.noise_unst_std;
-    disp(['saving ' fmri '_Atlas' regstring '_hp' num2str(hp) '_vn.dscalar.nii']);
-    ciftisavereset(VN,[fmri '_Atlas' regstring '_hp' num2str(hp) '_vn.dscalar.nii'],WBC);    
+    fname=[fmri '_Atlas' regstring hpstring '_vn.dscalar.nii'];
+    disp(['saving ' fname]);
+    ciftisavereset(VN,fname,WBC);    
 end
 
-%Apply VN and Save HP_VN TCS
+%% Apply VN and Save HP_VN TCS
+% Here, NIFTI VN'ed TCS gets saved regardless of whether hp>=0 (i.e., regardless of whether individual or concatenated run)
+% But CIFTI version of TCS only saved if hp>0
 if dovol > 0
   cts=cts./repmat(Outcts.noise_unst_std,1,ctsT);
   if hp>=0
@@ -260,10 +275,10 @@ if dovol > 0
     %call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri '_vnf.nii.gz -d']); 
   end
 end
-
+% For CIFTI, we can use the extension to distinguish between VN maps (.dscalar) and VN'ed time series (.dtseries)
 if hp>=0
     BO.cdata=BO.cdata./repmat(OutBO.noise_unst_std,1,size(BO.cdata,2));
-    ciftisave(BO,[fmri '_Atlas' regstring '_hp' num2str(hp) '_vn.dtseries.nii'],WBC); 
+    ciftisave(BO,[fmri '_Atlas' regstring hpstring '_vn.dtseries.nii'],WBC); 
 end
 
 %Echo Dims
@@ -281,6 +296,8 @@ end
 
 dlmwrite([fmri '_wf.txt'],[ndhpvol ndhpcifti ndvol],'\t');
 end
+
+
 %% ----------------------------------------------
 
 %% Polynomial detrending function
