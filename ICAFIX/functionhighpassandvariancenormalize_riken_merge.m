@@ -1,6 +1,45 @@
-function [ output_args ] = functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
+function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
+%
+% FUNCTIONHIGHPASSANDVARIANCENORMALIZE(TR,HP,FMRI,WBC,[REGSTRING])
+% 
+% This function:
+% (1) Detrends / high-pass filters motion confounds, NIFTI (volume) and CIFTI files
+% (2) Calls icaDim.m to estimate the dimensionalities of structured and unstructured noise,
+%     and compute a spatial variance normalization map.
+% It is written to support 'hcp_fix_multi_run', and is not intended as a general (stand-alone)
+% function supporting detrending and variance normalization.
+%
+% TR: repetition time between frames, in sec
+% HP: determines what high-pass filtering to apply to the motion confounds and data
+%     HP<0: No highpass applied (demeaning only). No 'hp' string will be added as part of the file names.
+%     HP>0: The full-width (2*sigma), in sec, to apply using 'fslmaths -bptf'.
+%     HP='pd#': If HP is a string, in which the first two characters are 'pd', followed by an integer value,
+%               then polynomial detrending is applied, with the order specified by the integer value 
+%               embedded at the end of the string.
+%               The output files will include the string '_hppd#'
+%     HP=0: Gets interpreted as a linear (1st order) detrend
+%           This is consistent with the convention in FIX of using HP=0 to specify a linear detrend.
+%           The output file names will include the string '_hp0'.
+% FMRI: The base string of the fmri time series (no extensions)
+% WBC: wb_command (full path)
+% [REGSTRING]: Additional registration-related string to add to output file names. OPTIONAL.
+  
+% Note: HP='pd0' would be interpreted as a true 0th order detrend, which is 
+% the same as demeaning. Mathematically, this is the same as the HP<0 condition,
+% but the output files will be named differently (i.e., include '_hppd0'), and additional
+% output files will be written relative to the HP<0 condition.
 
+% Authors: M. Glasser and M. Harms
 
+CIFTIMatlabReaderWriter=getenv('FSL_FIX_CIFTIRW');
+if (~isdeployed)
+  % addpath does not work and should not be used in compiled MATLAB
+  fprintf('Adding %s to MATLAB path\n', CIFTIMatlabReaderWriter);
+  addpath(CIFTIMatlabReaderWriter);
+end
+
+%% Defaults
+dovol = 1;
 
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
@@ -9,10 +48,11 @@ fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndvol)
 
 
 regstring = '';
-dovol = 1;
-%%if length(varargin) > 0 && ~strcmp(varargin{1}, '')
-%%    dovol = 0;%regname is only used for a new surface registration, so will never require redoing volume
-%%    regstring = varargin{1};%this has the underscore on the front already
+pdflag = false;  % Polynomial detrend
+pdstring = 'pd';  % Expected string at start of HP variable to request a "polynomial detrend"
+hpstring = '';
+
+%% Parse varargin
 if length(varargin) == 1 && ~isempty(varargin{1})
   dovol = 0; %regname is only used for a new surface registration, so will never require redoing volume
   regstring = varargin{1}; %this has the underscore on the front already
@@ -50,11 +90,52 @@ ctsX=size(cts,1); ctsY=size(cts,2); ctsZ=size(cts,3); ctsT=size(cts,4);
 cts=reshape(cts,ctsX*ctsY*ctsZ,ctsT);
 end
 
+% Check whether polynomial detrend is being requested for the high-pass filtering.
+if ischar(hp)
+  hp = lower(hp);
+  if strncmp(hp,pdstring,numel(pdstring))
+	pdflag = true;
+	hp = str2double(hp(numel(pdstring)+1:end));  % hp is now a numeric representing the order of the polynomial detrend
+  elseif ~isempty(str2double(hp))  % Allow for hp to be provided as a string that contains purely numeric elements
+	hp = str2double(hp);
+  else error('%s: Invalid specification for the high-pass filter', mfilename);
+  end
+end
+
+%% Allow for compiled matlab (hp as a string is already handled above)
+if (isdeployed)
+  TR = str2double(TR);
+end
+
+%% Argument checking
+if hp==0 && ~pdflag
+  warning('%s: hp=0 will be interpreted as polynomial detrending of order 1', mfilename);
+  pdflag=true;
+  hp=1;
+  % But in this case, preserve use of "_hp0" in the filename to indicate a linear detrend (for backwards compatibility in file naming)
+  hpstring = '_hp0';
+end
+if pdflag
+  if (~isscalar(hp) || hp < 0 || hp ~= fix(hp))
+	error('%s: Invalid specification for the order of the polynomial detrending', mfilename);
+  end
+end
+
+%% Finish setting up hpstring to use in file names
+if ~pdflag
+  pdstring = '';
+end
+if isempty(hpstring) && hp>=0
+    hpstring = ['_hp' pdstring num2str(hp)];
+end
+
+%% Load the motion confounds, and the CIFTI (if hp>=0) (don't need either if hp<0)
 if hp>=0
-    confounds=load([fmri '_hp' num2str(hp) '.ica/mc/prefiltered_func_data_mcf.par']);
+    confounds=load([fmri hpstring '.ica/mc/prefiltered_func_data_mcf.par']);
     confounds=confounds(:,1:6);
-    confounds=functionnormalise([confounds [zeros(1,size(confounds,2)); confounds(2:end,:)-confounds(1:end-1,:)] ]);
-    confounds=functionnormalise([confounds confounds.*confounds]);
+	%% normalise function is in HCPPIPEDIR/global/matlab/normalise.m
+    confounds=normalise([confounds [zeros(1,size(confounds,2)); confounds(2:end,:)-confounds(1:end-1,:)] ]);
+    confounds=normalise([confounds confounds.*confounds]);
 
     BO=ciftiopen([fmri '_Atlas' regstring '.dtseries.nii'],WBC);
 else
@@ -63,39 +144,81 @@ else
     end
 end
 
-if hp==0
+%% Apply hp filtering of the motion confounds, volume (if requested), and CIFTI
+if pdflag  % polynomial detrend case
     if dovol > 0
-    save_avw(reshape(confounds',size(confounds,2),1,1,size(confounds,1)),[fmri '_hp' num2str(hp) '.ica/mc/prefiltered_func_data_mcf_conf'],'f',[1 1 1 TR]);
-    confounds=detrend(confounds);
-    save_avw(reshape(confounds',size(confounds,2),1,1,size(confounds,1)),[fmri '_hp' num2str(hp) '.ica/mc/prefiltered_func_data_mcf_conf_hp'],'f',[1 1 1 TR]);
-    
-    cts=detrend(cts')';
-    save_avw(reshape(cts,ctsX,ctsY,ctsZ,ctsT),[fmri '_hp' num2str(hp) '.nii.gz'],'f',[1 1 1 TR]);
-    call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri '_hp' num2str(hp) '.nii.gz']);
+        % Save and filter confounds, as a NIFTI, as expected by FIX
+        save_avw(reshape(confounds',size(confounds,2),1,1,size(confounds,1)),[fmri hpstring '.ica/mc/prefiltered_func_data_mcf_conf'],'f',[1 1 1 TR]);
+        confounds=detrendpoly(confounds,hp);
+        save_avw(reshape(confounds',size(confounds,2),1,1,size(confounds,1)),[fmri hpstring '.ica/mc/prefiltered_func_data_mcf_conf_hp'],'f',[1 1 1 TR]);
+
+        % Load volume time series and reduce to just the non-zero voxels (for memory efficiency)
+        % Note: Use 'range' to identify non-zero voxels (which is very memory efficient)
+        % rather than 'std' (which requires additional memory equal to the size of the input)
+        ctsfull=single(read_avw([fmri '.nii.gz']));
+        ctsX=size(ctsfull,1); ctsY=size(ctsfull,2); ctsZ=size(ctsfull,3); ctsT=size(ctsfull,4); 
+        ctsfull=reshape(ctsfull,ctsX*ctsY*ctsZ,ctsT);
+        ctsmask=range(ctsfull, 2) > 0;
+        fprintf('Non-empty voxels: %d (= %.2f%% of %d)\n', sum(ctsmask), 100*sum(ctsmask)/size(ctsfull,1), size(ctsfull,1));
+        cts=ctsfull(ctsmask,:); 
+        clear ctsfull;
+
+        % Polynomial detrend
+        cts=detrendpoly(cts',hp)';
+
+        % Write out result, restoring to original size
+        ctsfull=zeros(ctsX*ctsY*ctsZ,ctsT, 'single');
+        ctsfull(ctsmask,:)=cts;
+        save_avw(reshape(ctsfull,ctsX,ctsY,ctsZ,ctsT),[fmri hpstring '.nii.gz'],'f',[1 1 1 TR]); 
+        clear ctsfull;
+        % Use -d flag in fslcpgeom (even if not technically necessary) to reduce possibility of mistakes when editing script
+        call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri hpstring '.nii.gz -d']);
     end
 
-    BO.cdata=detrend(BO.cdata')';
-    ciftisave(BO,[fmri '_Atlas' regstring '_hp' num2str(hp) '.dtseries.nii'],WBC);
-end
-if hp>0
+    BO.cdata=detrendpoly(BO.cdata',hp)';
+    ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+
+elseif hp>0  % "fslmaths -bptf" based filtering
     if dovol > 0
-      save_avw(reshape(confounds',size(confounds,2),1,1,size(confounds,1)),[fmri '_hp' num2str(hp) '.ica/mc/prefiltered_func_data_mcf_conf'],'f',[1 1 1 TR]);
-      call_fsl(sprintf(['fslmaths ' fmri '_hp' num2str(hp) '.ica/mc/prefiltered_func_data_mcf_conf -bptf %f -1 ' fmri '_hp' num2str(hp) '.ica/mc/prefiltered_func_data_mcf_conf_hp'],0.5*hp/TR));
-      if exist([fmri '_hp' num2str(hp) '.nii.gz'], 'file') == 0 % added by Takuya Hayashi
-        save_avw(reshape(cts,ctsX,ctsY,ctsZ,ctsT),[fmri '_hp' num2str(hp) '.nii.gz'],'f',[1 1 1 TR]);
-        call_fsl(['fslmaths ' fmri '_hp' num2str(hp) '.nii.gz -bptf ' num2str(0.5*hp/TR) ' -1 ' fmri '_hp' num2str(hp) '.nii.gz']);
-      end
-      cts=single(read_avw([fmri '_hp' num2str(hp) '.nii.gz']));
-      cts=reshape(cts,ctsX*ctsY*ctsZ,ctsT);
-      call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri '_hp' num2str(hp) '.nii.gz']);
+        % Save and filter confounds, as a NIFTI, as expected by FIX
+        save_avw(reshape(confounds',size(confounds,2),1,1,size(confounds,1)),[fmri hpstring '.ica/mc/prefiltered_func_data_mcf_conf'],'f',[1 1 1 TR]);
+        call_fsl(sprintf(['fslmaths ' fmri hpstring '.ica/mc/prefiltered_func_data_mcf_conf -bptf %f -1 ' fmri hpstring '.ica/mc/prefiltered_func_data_mcf_conf_hp'],0.5*hp/TR));
+
+        % bptf filtering; no masking here, so this is probably memory inefficient
+        call_fsl(['fslmaths ' fmri '.nii.gz -bptf ' num2str(0.5*hp/TR) ' -1 ' fmri hpstring '.nii.gz']);
+        call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri hpstring '.nii.gz -d']);
+        
+        % Load in result and reduce to just the non-zero voxels (for memory efficiency going forward)
+        ctsfull=single(read_avw([fmri hpstring '.nii.gz']));
+        ctsX=size(ctsfull,1); ctsY=size(ctsfull,2); ctsZ=size(ctsfull,3); ctsT=size(ctsfull,4);
+        ctsfull=reshape(ctsfull,ctsX*ctsY*ctsZ,ctsT);
+        ctsmask=range(ctsfull, 2) > 0;
+        fprintf('Non-empty voxels: %d (= %.2f%% of %d)\n', sum(ctsmask), 100*sum(ctsmask)/size(ctsfull,1), size(ctsfull,1));
+        cts=ctsfull(ctsmask,:); 
+        clear ctsfull;
     end
 
     BOdimX=size(BO.cdata,1);  BOdimZnew=ceil(BOdimX/100);  BOdimT=size(BO.cdata,2);
     save_avw(reshape([BO.cdata ; zeros(100*BOdimZnew-BOdimX,BOdimT)],10,10,BOdimZnew,BOdimT),'Atlas','f',[1 1 1 TR]);
     call_fsl(sprintf('fslmaths Atlas -bptf %f -1 Atlas',0.5*hp/TR));
     grot=reshape(single(read_avw('Atlas')),100*BOdimZnew,BOdimT);  BO.cdata=grot(1:BOdimX,:);  clear grot; 
-    call_fsl('rm Atlas.nii.gz');
-    ciftisave(BO,[fmri '_Atlas' regstring '_hp' num2str(hp) '.dtseries.nii'],WBC);
+    ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+    delete('Atlas.nii.gz');
+
+elseif hp<0  % If no hp filtering, still need to at least demean the volumetric time series
+    if dovol > 0
+
+        % Load volume time series and reduce to just the non-zero voxels (for memory efficiency)
+        ctsfull=single(read_avw([fmri '.nii.gz']));
+        ctsX=size(ctsfull,1); ctsY=size(ctsfull,2); ctsZ=size(ctsfull,3); ctsT=size(ctsfull,4);
+        ctsfull=reshape(ctsfull,ctsX*ctsY*ctsZ,ctsT);
+        ctsmask=range(ctsfull, 2) > 0;
+        fprintf('Non-empty voxels: %d (= %.2f%% of %d)\n', sum(ctsmask), 100*sum(ctsmask)/size(ctsfull,1), size(ctsfull,1));
+        cts=ctsfull(ctsmask,:);
+        clear ctsfull;
+        
+        cts=demean(cts')';
+  end
 
 end
 
