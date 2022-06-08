@@ -46,11 +46,34 @@ pdstring = 'pd';  % Expected string at start of HP variable to request a "polyno
 hpstring = '';
 
 %% Parse varargin
-if length(varargin) >= 1 && ~isempty(varargin{1})
+if length(varargin) == 1 && ~isempty(varargin{1})
   dovol = 0; %regname is only used for a new surface registration, so will never require redoing volume
   regstring = varargin{1}; %this has the underscore on the front already
+  ndhpvol=2
+  ndhpcifti=3
+  ndvol=3
   if ~ischar(regstring)
 	error('%s: REGSTRING should be a string', mfilename);
+  end
+elseif length(varargin) >= 3
+  if ~isempty(varagin{4})
+    dovol = 0
+    regstring = varargin{4}
+    if ~ischar(regstring)
+	  error('%s: REGSTRING should be a string', mfilename);
+    end
+  end
+  ndhpvol=varargin{1}
+  ndhpcifti=varargin{2}
+  ndvol=varargin{3}
+  if ~isint(ndhpvol)
+    error('%s: NDHPVOL should be an integer', mfilename);
+  end
+  if ~isint(ndhpcifti)
+    error('%s: NDHPCIFTI should be an integer', mfilename);
+  end
+  if ~isint(ndvol)
+	error('%s: NDVOL should be an integer', mfilename);
   end
 end
 
@@ -191,13 +214,13 @@ end
 %% Compute VN map
 if hp>=0
     if dovol > 0
-        Outcts=icaDim(cts,0,1,-1,2); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform 
+        Outcts=icaDim(cts,0,1,-1,ndhpvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform 
     end
     
-    OutBO=icaDim(BO.cdata,0,1,-1,3); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, CIFTI fits three distributions to deal with volume to CIFTI mapping
+    OutBO=icaDim(BO.cdata,0,1,-1,ndhpcifti); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, CIFTI fits three distributions to deal with volume to CIFTI mapping
 else
     if dovol > 0
-        Outcts=icaDim(cts,0,1,-1,2); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform  
+        Outcts=icaDim(cts,0,1,-1,ndvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform  
     end
 end
 
