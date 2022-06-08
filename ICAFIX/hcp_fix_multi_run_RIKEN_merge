@@ -566,17 +566,21 @@ for fmri in $fmris ; do
 done
 
 #AlreadyHP="-1" #Don't run highpass on concatenated data
+## ---------------------------------------------------------------------------
+## Concatenate the individual runs and create necessary files
+## ---------------------------------------------------------------------------
 
 #Make Concatenated Folder
 ConcatFolder=`dirname ${ConcatName}`
 log_Msg "Making concatenated folder: ${ConcatFolder}"
 if [ ! -e ${ConcatFolder} ] ; then  
-	mkdir -p ${ConcatFolder} 
+	mkdir ${ConcatFolder} 
 else
 	if [ $OW = 1 ] ; then
-		rm -r ${ConcatFolder}
+	/bin/rm -r ${ConcatFolder}
+	log_Warn "Previous ${ConcatFolder} directory removed"
 	fi
-	mkdir -p ${ConcatFolder}
+    mkdir ${ConcatFolder}
 fi
 
 ConcatNameNoExt=$($FSLDIR/bin/remove_ext $ConcatName)  # No extension, but still includes the directory path
