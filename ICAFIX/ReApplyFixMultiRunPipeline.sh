@@ -715,7 +715,7 @@ main()
 				fi
 				
 				# ${hp} needs to be passed in as a string, to handle the hp=pd* case
-				local matlab_cmd="${ML_PATHS} functionhighpassandvariancenormalize(${tr}, '${hp}', '${fmri}', '${Caret7_Command}', '${RegString}');"
+				local matlab_cmd="${ML_PATHS} functionhighpassandvariancenormalize(${tr}, '${hp}', '${fmri}', '${Caret7_Command}', '${ndhpvol}', '${ndhpcifti}', '${ndcifti}', '${RegString}');"
 				
 				log_Msg "Run interpreted MATLAB/Octave (${interpreter[@]}) with command..."
 				log_Msg "${matlab_cmd}"
