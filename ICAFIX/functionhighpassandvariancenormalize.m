@@ -22,7 +22,9 @@ function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
 %           The output file names will include the string '_hp0'.
 % FMRI: The base string of the fmri time series (no extensions)
 % WBC: wb_command (full path)
+% varargin: 
 % [REGSTRING]: Additional registration-related string to add to output file names. OPTIONAL.
+% [ndhpvol ndhpcifti ndvol]: number of distributions highpassed volume, highpassed cifti and concatenated volume. OPTIONAL.
   
 % Note: HP='pd0' would be interpreted as a true 0th order detrend, which is 
 % the same as demeaning. Mathematically, this is the same as the HP<0 condition,
@@ -76,6 +78,12 @@ elseif length(varargin) >= 3
 	error('%s: NDVOL should be an integer', mfilename);
   end
 end
+
+%UNTITLED4 Summary of this function goes here
+%   Detailed explanation goes here
+%   Default value: ndhpvol=2;ndhpcifti=3; ndvol=3; - Takuya Hayashi, Matt Glasser
+fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndvol)
+
 
 % Check whether polynomial detrend is being requested for the high-pass filtering.
 if ischar(hp)
@@ -277,6 +285,7 @@ else
     dlmwrite([fmri '_dims.txt'],[Outcts.calcDim],'\t');
 end
 
+dlmwrite([fmri '_wf.txt'],[ndhpvol ndhpcifti ndvol],'\t');
 end
 
 

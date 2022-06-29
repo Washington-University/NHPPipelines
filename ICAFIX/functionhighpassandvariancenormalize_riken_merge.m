@@ -22,8 +22,10 @@ function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
 %           The output file names will include the string '_hp0'.
 % FMRI: The base string of the fmri time series (no extensions)
 % WBC: wb_command (full path)
+% varargin: 
 % [REGSTRING]: Additional registration-related string to add to output file names. OPTIONAL.
-  
+% [ndhpvol ndhpcifti ndvol]: number of distributions highpassed volume, highpassed cifti and concatenated volume. OPTIONAL.
+
 % Note: HP='pd0' would be interpreted as a true 0th order detrend, which is 
 % the same as demeaning. Mathematically, this is the same as the HP<0 condition,
 % but the output files will be named differently (i.e., include '_hppd0'), and additional
@@ -40,13 +42,6 @@ end
 
 %% Defaults
 dovol = 1;
-
-%UNTITLED4 Summary of this function goes here
-%   Detailed explanation goes here
-%   Default value: ndhpvol=2;ndhpcifti=3; ndvol=3; - Takuya Hayashi, Matt Glasser
-fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndvol)
-
-
 regstring = '';
 pdflag = false;  % Polynomial detrend
 pdstring = 'pd';  % Expected string at start of HP variable to request a "polynomial detrend"
@@ -84,11 +79,11 @@ elseif length(varargin) >= 3
   end
 end
 
-if dovol > 0
-cts=single(read_avw([fmri '.nii.gz']));
-ctsX=size(cts,1); ctsY=size(cts,2); ctsZ=size(cts,3); ctsT=size(cts,4); 
-cts=reshape(cts,ctsX*ctsY*ctsZ,ctsT);
-end
+%UNTITLED4 Summary of this function goes here
+%   Detailed explanation goes here
+%   Default value: ndhpvol=2;ndhpcifti=3; ndvol=3; - Takuya Hayashi, Matt Glasser
+fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndvol)
+
 
 % Check whether polynomial detrend is being requested for the high-pass filtering.
 if ischar(hp)
@@ -138,10 +133,6 @@ if hp>=0
     confounds=normalise([confounds confounds.*confounds]);
 
     BO=ciftiopen([fmri '_Atlas' regstring '.dtseries.nii'],WBC);
-else
-    if dovol > 0
-       cts=demean(cts')'; 
-    end
 end
 
 %% Apply hp filtering of the motion confounds, volume (if requested), and CIFTI
@@ -266,14 +257,14 @@ end
 % But CIFTI version of TCS only saved if hp>0
 if dovol > 0
   cts=cts./repmat(Outcts.noise_unst_std,1,ctsT);
-  if hp>=0
-    save_avw(reshape(cts,ctsX,ctsY,ctsZ,ctsT),[fmri '_hp' num2str(hp) '_vnts.nii.gz'],'f',[1 1 1 1]); 
-    call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri '_hp' num2str(hp) '_vnts.nii.gz -d']); 
-  else
-    save_avw(reshape(cts,ctsX,ctsY,ctsZ,ctsT),[fmri '_vnts.nii.gz'],'f',[1 1 1 1]); 
-    call_fsl(['fslmaths ' fmri '.nii.gz -sub ' fmri '.nii.gz -add ' fmri '_vnts.nii.gz ' fmri '_vnts.nii.gz']); 
-    %call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri '_vnf.nii.gz -d']); 
-  end
+    % Use '_vnts' (volume normalized time series) as the suffix for the volumetric VN'ed TCS
+    fname=[fmri hpstring '_vnts.nii.gz'];
+    ctsfull=zeros(ctsX*ctsY*ctsZ,ctsT, 'single');
+    ctsfull(ctsmask,:)=cts;
+    save_avw(reshape(ctsfull,ctsX,ctsY,ctsZ,ctsT),fname,'f',[1 1 1 1]);
+    clear ctsfull;
+    % N.B. Version of 'fslcpgeom' in FSL 6.0.0 requires a patch because it doesn't copy both the qform and sform faithfully
+    call_fsl(['fslcpgeom ' fmri '.nii.gz ' fname ' -d']); 
 end
 % For CIFTI, we can use the extension to distinguish between VN maps (.dscalar) and VN'ed time series (.dtseries)
 if hp>=0
