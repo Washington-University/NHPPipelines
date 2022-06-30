@@ -362,7 +362,6 @@ log_Msg "doMotionRegression: ${doMotionRegression}"
 log_Msg "TrainingData: ${TrainingData}"
 log_Msg "FixThresh: ${FixThresh}"
 log_Msg "DeleteIntermediates: ${DeleteIntermediates}"
-log_Msg "SPECIES: ${SPECIES}"
 log_Msg "WF Ndist: ${WF}"
 log_Msg "UserDim: ${UserDim}"
 log_Msg "CARET7DIR: ${CARET7DIR}"
@@ -418,7 +417,6 @@ for fmri in $fmris ; do
 	if [ `$FSLDIR/bin/imtest $fmri` != 1 ]; then
 		log_Err_Abort "Invalid 4D_FMRI input file specified: ${fmri}"
 	fi
-	fmri_orig=$fmri
 
 	# Get Movement_Regressors.txt into the format expected by functionhighpassandvariancenormalize.m
 	mkdir -p ${fmri}_hp${hp}.ica/mc
@@ -446,55 +444,59 @@ for fmri in $fmris ; do
 	log_Msg "tr: ${tr}"  
 	log_Msg "processing FMRI file ${fmri} with highpass ${hp}"
 
-	#Highpass Filter and Variance Normalize Data
-	#if [ $hp -gt 0 ] ; then 
-	#	log_Msg "running highpass"
-	#	hptr=`echo "10 k $hp 2 / $tr / p" | dc -` 
-	#	log_Msg "hptr $hptr"
-	#	${FSLDIR}/bin/fslmaths $fmri -sub ${fmri}_mean -bptf $hptr -1 ${fmri}_hp$hp 
-	#fi
-		
-	#log_Msg "functionmotionconfounds log file is to be named: .fix.functionmotionconfounds.log instead of .fix.log"
-	#cd ${fmri}_hp$hp.ica
-	#${FSL_FIXDIR}/call_matlab.sh -l .fix.functionmotionconfounds.log -f functionmotionconfounds $tr $hp 
-	#cd ..
-		
-	#${FSL_FIX_WBC} -cifti-convert -to-nifti ${fmri}_Atlas.dtseries.nii ${fmri}_Atlas_FAKENIFTI.nii.gz
-	#${FSLDIR}/bin/fslmaths ${fmri}_Atlas_FAKENIFTI.nii.gz -bptf $hptr -1 ${fmri}_Atlas_hp$hp_FAKENIFTI.nii.gz
-	#${FSL_FIX_WBC} -cifti-convert -from-nifti ${fmri}_Atlas_hp$hp_FAKENIFTI.nii.gz ${fmri}_Atlas.dtseries.nii ${fmri}_Atlas_hp$hp.dtseries.nii
-	#$FSLDIR/bin/imrm ${fmri}_Atlas_FAKENIFTI ${fmri}_Atlas_hp$hp_FAKENIFTI
-
-  #cd ${fmri}_hp$hp.ica
+	## MPH: Log output to existing stdout/stderr, rather than a separate .fix.functionhighpassandvariancenormalize.log file
 	#if [ -e .fix.functionhighpassandvariancenormalize.log ] ; then
-	#    rm .fix.functionhighpassandvariancenormalize.log
+	#	/bin/rm .fix.functionhighpassandvariancenormalize.log
 	#fi
-	if [ -e .fix.functionhighpassandvariancenormalize_riken.log ] ; then
-	    rm .fix.functionhighpassandvariancenormalize_riken.log
-	fi
 
+	## We will use the call_matlab.sh script available in ${FSL_FIXDIR}.
+	## But the arguments need to be customized depending on the matlab mode, because:
+	## (1) the -r argument does not support the use of compiled matlab, but is needed for interpreted matlab/octave
+	## to allow addition of 'addpath' as a command, so that functionhighpassandvariancenormalize.m can be found within matlab/octave.
+	## (2) for compiled matlab, we need to use the -c and -b flags to specify the location of the MCR and the compiled binary.
+	## (We cannot use the defaults in ${FSL_FIXDIR}/settings.sh here, since functionhighpassandvariancenormalize.m is an HCP
+	## specific script that is not part of the FIX distribution).
 
+	# For INTERPRETED MODES, make sure that matlab/octave has access to the functions it needs.
+	# normalise.m (needed by functionhighpassandvariancenormalize.m) is in '${HCPPIPEDIR}/global/matlab'
+	# Note that the call_matlab.sh script itself adds ${FSL_FIXDIR} (all the fix-related functions)
+	# and ${FSL_MATLAB_PATH} (e.g., read_avw.m, save_avw.m) to the matlab path.
+	# Note that fix_3_clean.m *appends* ${FSL_FIX_CIFTIRW} (defined in ${FSL_FIXDIR}/settings.sh)
+	# to the matlab path (i.e., the ciftiopen.m, ciftisave.m functions).
+	# BUT the CIFTI I/O functions are also now included within '${HCPPIPEDIR}/global/matlab' as well.
+	# AND since 'addpath' *prepends* to the matlab path, the versions in '${HCPPIPEDIR}/global/matlab' will therefore take precedence!
+	ML_PATHS="addpath('${HCPPIPEDIR}/global/matlab'); addpath('${this_script_dir}/scripts');"
+
+	case ${FSL_FIX_MATLAB_MODE} in
+		0)
+			# Use compiled Matlab
+			if [ -z "${MATLAB_COMPILER_RUNTIME}" ]; then
+				log_Err_Abort "To use MATLAB run mode: ${FSL_FIX_MATLAB_MODE}, the MATLAB_COMPILER_RUNTIME environment variable must be set"
 		else
-		  log_Msg "Found ${fmri}_hp${hp} is already filtered"
+				log_Msg "MATLAB_COMPILER_RUNTIME: ${MATLAB_COMPILER_RUNTIME}"
 		fi
-	fi
-  	if [ -e ${fmri}_Atlas_hp${hp}.dtseries.nii ] ; then
-		log_Msg "Found and using ${fmri}_Atlas_hp${hp}.dtseries.nii"
-	fi
 
-	log_Msg "${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken $tr $hp $fmri ${FSL_FIX_WBC} $ndhpvol $ndhpcifti $ndcifti"
-
-	#${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken $tr $hp $fmri ${FSL_FIX_WBC}
-	${FSL_FIXDIR}/call_matlab.sh -l .fix.functionhighpassandvariancenormalize_riken.log -f functionhighpassandvariancenormalize_riken $tr $hp $fmri ${FSL_FIX_WBC} $ndhpvol $ndhpcifti $ndcifti
-
-	#log_Msg "matlab -nodesktop -nosplash -r \"addpath('$FSL_FIXDIR'); addpath('${FSLDIR}/etc/matlab'); functionhighpassandvariancenormalize_riken($tr,$hp,'$fmri','$FSL_FIX_WBC',$ndhpvol,$ndhpcifti,$ndcifti);\""
-	#matlab -nodesktop -nosplash -r "addpath('$FSL_FIXDIR'); addpath('${FSLDIR}/etc/matlab'); functionhighpassandvariancenormalize_riken($tr,$hp,'$fmri','$FSL_FIX_WBC',$ndhpvol,$ndhpcifti,$ndcifti);" >> .fix.functionhighpassandvariancenormalize_riken.log 2>&1
-
-  #cd ..
-  	if [ "$(cat ${fmri}_dims.txt)" != "" ] ; then
-    		log_Msg "Dims: $(cat ${fmri}_dims.txt)"
-  	else
-    		log_Msg "Dims was not properly estimated by IcaDim"
-  	fi
+			CSUBDIR=${HCPPIPEDIR}/ICAFIX/scripts/Compiled_functionhighpassandvariancenormalize
+			matlab_cmd="${FSL_FIXDIR}/call_matlab.sh -c ${MATLAB_COMPILER_RUNTIME} -b ${CSUBDIR} -f functionhighpassandvariancenormalize ${tr} ${hp} ${fmri} ${Caret7_Command} ${ndhpvol} ${ndhpcifti} ${ndcifti}"
+			log_Msg "Run compiled MATLAB with command..."
+			log_Msg "${matlab_cmd}"
+			${matlab_cmd}
+			;;
+		1 | 2)
+			# Use interpreted MATLAB or Octave
+			# ${hp} needs to be passed in as a string, to handle the hp=pd* case
+			matlab_cmd="${ML_PATHS} functionhighpassandvariancenormalize(${tr}, '${hp}', '${fmri}', '${Caret7_Command}', '${ndhpvol}, '${ndhpcifti}', '${ndcifti});"
+			log_Msg "Run interpreted MATLAB/Octave with command..."
+			log_Msg "${FSL_FIXDIR}/call_matlab.sh -r ${matlab_cmd}"
+			${FSL_FIXDIR}/call_matlab.sh -r "${matlab_cmd}"   # Note: the semicolon within ${matlab_cmd} needs to be protected with quotation marks
+			;;
+		*)
+			# Unsupported MATLAB run mode
+			log_Err_Abort "Unsupported MATLAB run mode value (FSL_FIX_MATLAB_MODE) in $FSL_FIXDIR/settings.sh: ${FSL_FIX_MATLAB_MODE}"
+			;;
+	esac
+	
+    log_Msg "Dims: $(cat ${fmri}_dims.txt)"
   
 	# Demean the movement regressors (in the 'fake-NIFTI' format returned by functionhighpassandvariancenormalize)
 	fslmaths ${fmri}_hp${hp}.ica/mc/prefiltered_func_data_mcf_conf -Tmean ${fmri}_hp${hp}.ica/mc/prefiltered_func_data_mcf_conf_mean
@@ -503,11 +505,6 @@ for fmri in $fmris ; do
 
 	cd ${DIR}  # Return to directory where script was launched
 
-	fmri=${fmri}_hp$hp
-	#cd ${fmri}.ica
-	# Per https://github.com/Washington-University/Pipelines/issues/60, the following line doesn't appear to be necessary
-	#$FSLDIR/bin/imln ../$fmri filtered_func_data
-	#cd ..
 	log_Msg "Bottom of loop through fmris: fmri: ${fmri}"
 
 done  ### END LOOP (for fmri in $fmris; do)
