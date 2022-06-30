@@ -270,33 +270,6 @@ function interpret_as_bool()
 
 #############################################################
 
-# RData
-if [ $Species = 0 ] ; then
-	if [ "$TrainingData" = "" ] ; then 
-		TrainingData=${FSL_FIXDIR}/training_files/HCP_Style_Single_Multirun_Dedrift.RData;
-	fi
-	export SPECIES=Human
-	if [ "$FixThresh" = "" ] ; then
-		FixThresh=10
-	fi
-elif [ $Species = 1 ] ; then
-	export SPECIES=Macaque
-	if [ "$TrainingData" = "" ] ; then
-	  	TrainingData=${FSL_FIXDIR}/training_files/NHPHCP_Macaque.RData
-	fi
-	if [ "$FixThresh" = "" ] ; then
-		FixThresh=40
-	fi
-elif [ $Species = 2 ] ; then
-	export SPECIES=Marmoset
-	if [ "$TrainingData" = "" ] ; then
-		TrainingData=${FSL_FIXDIR}/training_files/NHPHCP_Marmoset.RData
-	fi
-	if [ "$FixThresh" = "" ] ; then
-		FixThresh=40
-	fi
-fi
-
 ## ---------------------------------------------------------------------------
 ## Check whether FSL version is recent enough
 ## ---------------------------------------------------------------------------
