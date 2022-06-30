@@ -355,7 +355,6 @@ fi
 # Inserted by Takuya Hayashi, July 2018
 shift;shift;shift;shift
 Species=0
-RunMode=0
 WF="2,3,3"
 FixThresh=""
 SURFGEOM=0
@@ -634,7 +633,6 @@ fslmerge -tr ${ConcatFolder}/${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_co
 cd `dirname $fmri`
 }
 
-RunICA () {
 ## "2nd pass" VN
 ## This is solely so that we can apply our own variance normalization as part of the spatial ICA, 
 ## rather than using the VN algorithm internal to melodic
@@ -783,7 +781,6 @@ fi
 # Return to ${ConcatFolder}
 # Do not use 'cd ${ConcatFolder}', because ${ConcatFolder} may not be an absolute path
 cd ../..
-}
 
 ## ---------------------------------------------------------------------------
 ## Actually run FIX
@@ -855,7 +852,6 @@ log_Msg "Done running FIX"
 
 
 
-RunPostFix () {
 cd ${ConcatFolder}
 
 log_Msg "Moving ${concatfmri}.ica/filtered_func_data_clean to ${concatfmri}_clean"
@@ -915,17 +911,9 @@ done
 
 log_Msg "Finished"
 
-}
 
-if [ "$RunMode" = 0 ] ; then
-	RunPreFix;RunICA;RunFix;RunPostFix
-elif [ "$RunMode" = 1 ] ; then
-	RunICA; RunFix;RunPostFix
-elif [ "$RunMode" = 2 ] ; then
-	RunFix;RunPostFix
-elif [ "$RunMode" = 3 ] ; then
-	RunPostFix
-fi
+
+
 cd ${DIR}
 
 log_Msg "Completed!"
