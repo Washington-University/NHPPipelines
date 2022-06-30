@@ -82,7 +82,6 @@ e.g.  hcp_fix_multi_run rfMRI_REST1_RL/rfMRI_REST1_RL.nii.gz@rfMRI_REST1_RL/rfMR
 		-d <dim>		: Dimension for group-ICA (default is estimated by icaDIM)
 		-w <num>,<num>,<num>    : Wishart filter Ndist (default is 2,3,3)
 		-h 			: help message
-		-n 			: Do not overwrite hp if already calculated
 		-b          : Brain mask
 EOF
 }
@@ -358,7 +357,6 @@ shift;shift;shift;shift
 Species=0
 RunMode=0
 WF="2,3,3"
-OW="1"
 FixThresh=""
 SURFGEOM=0
 TemplateMask=""
@@ -463,25 +461,13 @@ for fmri in $fmris ; do
 	demeanMovementRegressors Movement_Regressors.txt Movement_Regressors_demean.txt
 	MovementTXTMergeSTRING+="$(pwd)/Movement_Regressors_demean.txt "
 
-
-
-       if [ $OW = 1 ] ; then imrm ${fmri}_demean;fi
-       if [ ! -e ${fmri}_demean.nii.gz ] ; then
-  	 log_Msg "processing FMRI mean and demean"
-        #Demean volume, movement regressors, and data
+	#Demean volumes
 	 ${FSLDIR}/bin/fslmaths $fmri -Tmean ${fmri}_mean
  	 ${FSLDIR}/bin/fslmaths $fmri -sub ${fmri}_mean ${fmri}_demean
-	fi
 
-
-
-	if [ $OW = 1 ] ; then rm -rf $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii ; fi
-	if [ ! -e $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii ] ; then
-	log_Msg "Calculating mean and demeaned fmri Atlas"	
 	#Demean CIFTI
 	${Caret7_Command} -cifti-reduce ${fmri}_Atlas.dtseries.nii MEAN ${fmri}_Atlas_mean.dscalar.nii
 	${Caret7_Command} -cifti-math "TCS - MEAN" ${fmri}_Atlas_demean.dtseries.nii -var TCS ${fmri}_Atlas.dtseries.nii -var MEAN ${fmri}_Atlas_mean.dscalar.nii -select 1 1 -repeat
-	fi
 	
 	## "1st pass" VN on the individual runs; high-pass gets done here as well
 	tr=`$FSLDIR/bin/fslval $fmri pixdim4`  #No checking currently that TR is same across runs
