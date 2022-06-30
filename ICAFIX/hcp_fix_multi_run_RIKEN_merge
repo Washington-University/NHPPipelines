@@ -842,20 +842,55 @@ fi
 
 log_Msg "Done running FIX"
 
+## ---------------------------------------------------------------------------
+## Rename some files (relative to the default names coded in fix_3_clean)
+## ---------------------------------------------------------------------------
 
+$FSLDIR/bin/immv ${concatfmrihp}.ica/filtered_func_data_clean ${concatfmrihp}_clean
+if [ "$?" -ne "0" ]; then
+    log_Err_Abort "Something went wrong; ${concatfmrihp}.ica/filtered_func_data_clean wasn't created"
+fi
+if [ -f ${concatfmrihp}.ica/Atlas_clean.dtseries.nii ]; then
+    /bin/mv ${concatfmrihp}.ica/Atlas_clean.dtseries.nii ${concatfmri}_Atlas_hp${hp}_clean.dtseries.nii
+else
+    log_Err_Abort "Something went wrong; ${concatfmrihp}.ica/Atlas_clean.dtseries.nii wasn't created"
+fi
 
-cd ${ConcatFolder}
+# The variance normalization ("_vn") outputs of fix (fix_3_clean) require use of fix1.067 or later
+# So check whether those files exist before moving/renaming them
+if [ `$FSLDIR/bin/imtest ${concatfmrihp}.ica/filtered_func_data_clean_vn` = 1 ]; then
+    $FSLDIR/bin/immv ${concatfmrihp}.ica/filtered_func_data_clean_vn ${concatfmrihp}_clean_vn
+fi
+if [ -f ${concatfmrihp}.ica/Atlas_clean_vn.dscalar.nii ]; then
+    /bin/mv ${concatfmrihp}.ica/Atlas_clean_vn.dscalar.nii ${concatfmri}_Atlas_hp${hp}_clean_vn.dscalar.nii
+	if [ -f ${concatfmri}_Atlas_hp${hp}_clean.dtseries.nii ] ; then
+		${FSL_FIX_WBC} -cifti-math "TCS/VN" ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dtseries.nii -var TCS ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii -var VN ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dscalar.nii -select 1 1 -repeat
+	fi
+fi
+log_Msg "Done renaming files"
 
-log_Msg "Moving ${concatfmri}.ica/filtered_func_data_clean to ${concatfmri}_clean"
-$FSLDIR/bin/immv ${concatfmri}.ica/filtered_func_data_clean ${concatfmri}_clean
-$FSLDIR/bin/immv ${concatfmri}.ica/filtered_func_data_clean_vn ${concatfmri}_clean_vn
+# Remove the 'fake-NIFTI' file created in fix_3_clean for high-pass filtering of the CIFTI (if it exists)
+$FSLDIR/bin/imrm ${concatfmrihp}.ica/Atlas
 
-log_Msg "Checking for existence of ${concatfmri}.ica/Atlas_clean.dtseries.nii"
-if [ -f ${concatfmri}.ica/Atlas_clean.dtseries.nii ] ; then
-	log_Msg "Moving ${concatfmri}.ica/Atlas_clean.dtseries.nii to ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii"
-	/bin/mv ${concatfmri}.ica/Atlas_clean.dtseries.nii ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii
-	/bin/mv ${concatfmri}.ica/Atlas_clean_vn.dscalar.nii ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dscalar.nii
-	${FSL_FIX_WBC} -cifti-math "TCS/VN" ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dtseries.nii -var TCS ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii -var VN ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dscalar.nii -select 1 1 -repeat
+# Always delete things with too-generic names
+$FSLDIR/bin/imrm ${concatfmrihp}.ica/filtered_func_data
+rm -f ${concatfmrihp}.ica/Atlas.dtseries.nii
+
+# Optional deletion of highpass intermediates
+# (hp<0 not supported in this script currently, so no need to condition on value of hp)
+if [ "${DeleteIntermediates}" == "TRUE" ]
+then
+	$FSLDIR/bin/imrm ${concatfmri} ${concatfmrihp}
+    rm -f ${concatfmri}_Atlas.dtseries.nii ${concatfmri}_Atlas_hp${hp}.dtseries.nii
+fi
+
+# Convert sICA+FIX cleaned movement regressors to text
+if [ -f ${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_conf_hp_clean.nii.gz ] ; then
+  fslmeants -i ${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_conf_hp_clean.nii.gz -o Movement_Regressors_hp${hp}_clean.txt --showall
+  # Strip header lines included as part of '--showall' flag
+  nVols=$($FSLDIR/bin/fslnvols ${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_conf_hp_clean.nii.gz)
+  # Execute tail in a subshell, so we can successfully overwrite file with same name
+  echo "$(tail -n ${nVols} Movement_Regressors_hp${hp}_clean.txt)" > Movement_Regressors_hp${hp}_clean.txt
 fi
 
 #Cleaned volume and CIFTI have no mean and are intensity normalized by multiplying in the overall variance normalization
