@@ -79,17 +79,11 @@ e.g.  hcp_fix_multi_run rfMRI_REST1_RL/rfMRI_REST1_RL.nii.gz@rfMRI_REST1_RL/rfMR
         (if launching the script from the '\${StudyFolder}/\${Subject}/MNINonLinear/Results' directory)
 
 	Optional single character arguments:
-		-t <TrainingFile> 	: Training file (default is HCP_Style_Single_Multirun_Dedrift.RData for Human, NHPHCP_Macaque.RData for Macaque, 	
-					  NHPHCP_Marmoset.RData for Marmoset)
 		-d <dim>		: Dimension for group-ICA (default is estimated by icaDIM)
-		-s <num>		: Species - 0: Human (default), 1: Macaque, 2: Marmoset
-		-r <num>		: Run mode - 0: Run all (PreICA+FIX, ICA+FIX, PostICA+FIX, default), 1: Run ICA,FIX and PostICA+FIX, 
-					  2: Run FIX and PostICA+FIX, 3: Run PostICA+FIX)
-		-g			: use surface geometry FIX
 		-w <num>,<num>,<num>    : Wishart filter Ndist (default is 2,3,3)
-		-T <num>		: FIX threshold 0 to 100 (%) (default is 10 in HUman, 40 in Macaque and Marmoset)
 		-h 			: help message
 		-n 			: Do not overwrite hp if already calculated
+		-b          : Brain mask
 EOF
 }
 
@@ -277,7 +271,6 @@ function interpret_as_bool()
 
 #############################################################
 
-
 # RData
 if [ $Species = 0 ] ; then
 	if [ "$TrainingData" = "" ] ; then 
@@ -368,18 +361,14 @@ WF="2,3,3"
 OW="1"
 FixThresh=""
 SURFGEOM=0
+TemplateMask=""
 UserDim=NONE;
 while getopts t:d:s:r:w:nT:hg OPT
  do
  case "$OPT" in 
-   "t" ) TrainingData="$OPTARG";;
    "d" ) UserDim="$OPTARG";;
-   "s" ) Species="$OPTARG";;
-   "r" ) RunMode="$OPTARG";;
    "w" ) WF="$OPTARG";;
-   "n" ) OW=0;;
-   "T" ) FixThresh="$OPTARG";;
-   "g" ) SURFGEOM=1;;
+   "b" ) TemplateMask="$OPTARG";;
    "h" ) usage_exit;;
     * )  usage_exit;;
  esac
@@ -432,7 +421,6 @@ VNCIFTISTRING=""
 MovementNIFTIMergeSTRING=""
 MovementNIFTIhpMergeSTRING=""
 MovementTXTMergeSTRING=""
-FileListSTRING="" # Added by TH May 2019
 
 for fmri in $fmris ; do  
 	log_Msg "Top of loop through fmris: fmri: ${fmri}"
@@ -461,7 +449,6 @@ for fmri in $fmris ; do
 		log_Err_Abort "Invalid 4D_FMRI input file specified: ${fmri}"
 	fi
 	fmri_orig=$fmri
-	FileListSTRING="${FileListSTRING}${fmri}@" # Added by TH May 2019
 
 	# Get Movement_Regressors.txt into the format expected by functionhighpassandvariancenormalize.m
 	mkdir -p ${fmri}_hp${hp}.ica/mc
@@ -491,8 +478,9 @@ for fmri in $fmris ; do
 	if [ $OW = 1 ] ; then rm -rf $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii ; fi
 	if [ ! -e $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii ] ; then
 	log_Msg "Calculating mean and demeaned fmri Atlas"	
-	${FSL_FIX_WBC} -cifti-reduce $($FSLDIR/bin/remove_ext $fmri)_Atlas.dtseries.nii MEAN $($FSLDIR/bin/remove_ext $fmri)_Atlas_mean.dscalar.nii
-	${FSL_FIX_WBC} -cifti-math "TCS - MEAN" $($FSLDIR/bin/remove_ext $fmri)_Atlas_demean.dtseries.nii -var TCS $($FSLDIR/bin/remove_ext $fmri)_Atlas.dtseries.nii -var MEAN $($FSLDIR/bin/remove_ext $fmri)_Atlas_mean.dscalar.nii -select 1 1 -repeat
+	#Demean CIFTI
+	${Caret7_Command} -cifti-reduce ${fmri}_Atlas.dtseries.nii MEAN ${fmri}_Atlas_mean.dscalar.nii
+	${Caret7_Command} -cifti-math "TCS - MEAN" ${fmri}_Atlas_demean.dtseries.nii -var TCS ${fmri}_Atlas.dtseries.nii -var MEAN ${fmri}_Atlas_mean.dscalar.nii -select 1 1 -repeat
 	fi
 	
 	## "1st pass" VN on the individual runs; high-pass gets done here as well
@@ -526,22 +514,7 @@ for fmri in $fmris ; do
 	    rm .fix.functionhighpassandvariancenormalize_riken.log
 	fi
 
-	if [ $OW = 1 ] ; then
-  	  if [ -e ${fmri}_hp${hp}.nii.gz ] ; then
-		log_Msg "Found and removing ${fmri}_hp${hp}"
-		imrm ${fmri}_hp${hp}
-	  fi
-  	  if [ -e ${fmri}_Atlas_hp${hp}.dtseries.nii ] ; then
-		log_Msg "Found and removing ${fmri}_Atlas_hp${hp}.dtseries.nii"
-		rm -rf ${fmri}_Atlas_hp${hp}.dtseries.nii
-	  fi
-	fi
-	if [ -e ${fmri}_hp${hp}.nii.gz ] ; then
-		log_Msg "Found ${fmri}_hp${hp} and confirming it is already filtered"
-		v=`fslstats ${fmri}_hp${hp} -M`
-		if [ `echo "$v > 0.000001" | bc` -eq 1 ] || [ `echo "$v < -0.000001" | bc` -eq 1 ] ; then
-		  log_Msg "Found ${fmri}_hp${hp} is not yet filtered"
-		  imrm ${fmri}_hp${hp}
+
 		else
 		  log_Msg "Found ${fmri}_hp${hp} is already filtered"
 		fi
@@ -591,19 +564,14 @@ log_Msg "Making concatenated folder: ${ConcatFolder}"
 if [ ! -e ${ConcatFolder} ] ; then  
 	mkdir ${ConcatFolder} 
 else
-	if [ $OW = 1 ] ; then
 	/bin/rm -r ${ConcatFolder}
 	log_Warn "Previous ${ConcatFolder} directory removed"
-	fi
     mkdir ${ConcatFolder}
 fi
 
 ConcatNameNoExt=$($FSLDIR/bin/remove_ext $ConcatName)  # No extension, but still includes the directory path
 
 # Merge volumes from the individual runs
-if [ -e `remove_ext ${ConcatName}`_fmris.txt ] ; then rm `remove_ext ${ConcatName}`_fmris.txt;fi # Add by TH May 2019
-echo ${FileListSTRING} >> `remove_ext ${ConcatName}`_fmris.txt # Add by TH May 2019
-
 fslmerge -tr ${ConcatNameNoExt}_demean ${NIFTIvolMergeSTRING} $tr
 fslmerge -tr ${ConcatNameNoExt}_hp${hp}_vnts ${NIFTIvolhpVNMergeSTRING} $tr
 fslmerge -t  ${ConcatNameNoExt}_SBRef ${SBRefVolSTRING}
@@ -677,9 +645,6 @@ mkdir ${ConcatFolder}/${concatfmrihp}.ica/mc
 fslmerge -tr ${ConcatFolder}/${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_conf_hp ${MovementNIFTIhpMergeSTRING} $tr
 fslmerge -tr ${ConcatFolder}/${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_conf ${MovementNIFTIMergeSTRING} $tr
 
-# Added the following line - needed for FIX feature extraction - Takuya Hayashi July 2018
-cat Movement_Regressors_demean.txt | awk '{ print $4 " " $5 " " $6 " " $1 " " $2 " " $3}' > ${concatfmri}.ica/mc/prefiltered_func_data_mcf.par
-
 cd `dirname $fmri`
 }
 
@@ -704,17 +669,17 @@ if [ "${DEBUG}" = "TRUE" ] ; then
 	ls -lRa `remove_ext ${concatfmri}`.ica
 fi
 
-log_Msg "Running melodic located at: ${FSLDIR}/bin/melodic"
-log_Msg "Beginning of melodic version log, help, and checksum"
-if [ "${DEBUG}" = "TRUE" ] ; then
-	log_Msg "${FSLDIR}/bin/melodic --version"
-	${FSLDIR}/bin/melodic --version
-	log_Msg "${FSLDIR}/bin/melodic --help"
-	${FSLDIR}/bin/melodic --help
-	log_Msg "md5sum ${FSLDIR}/bin/melodic"
-	md5sum ${FSLDIR}/bin/melodic
+log_Msg "Running MELODIC located at: $MELODIC"
+log_Debug_Msg "Beginning of melodic version log, help, and checksum"
+if [ ! -z "${log_debugOn}" ] ; then
+	log_Debug_Msg "$MELODIC --version"
+	$MELODIC --version
+	log_Debug_Msg "$MELODIC --help"
+	$MELODIC --help
+	log_Debug_Msg "md5sum $MELODIC"
+	md5sum $MELODIC
 fi
-log_Msg "End of melodic version log, help, and checksum"
+log_Debug_Msg "End of melodic version log, help, and checksum"
 
 ###Run on concatenated file --
 
@@ -818,12 +783,11 @@ $FSLDIR/bin/makerot --theta=0 > highres2example_func.mat
 if [ `$FSLDIR/bin/imtest ../../../../T2w` = 1 ] ; then
 	$FSLDIR/bin/fslmaths ../../../../T1w -div ../../../../T2w veins -odt float
 	# Added for NHP
-	if [ $SPECIES = Human ] ; then
-	  	$FSLDIR/bin/flirt -in ${FSL_FIXDIR}/mask_files/hcp_0.7mm_brain_mask -ref veins -out veinbrainmask -applyxfm
+	if [[ $TemplateMask != "" ]] ; then
+		$FSLDIR/bin/fslmaths $TemplateMask -bin veinbrainmask
 	else
-  		$FSLDIR/bin/fslmaths $TemplateMask -bin veinbrainmask
+		$FSLDIR/bin/flirt -in ../../../../brainmask_fs -ref veins -out veinbrainmask -applyxfm
 	fi
-	#$FSLDIR/bin/flirt -in ${FSL_FIXDIR}/mask_files/hcp_0.7mm_brain_mask -ref veins -out veinbrainmask -applyxfm
 	$FSLDIR/bin/fslmaths veinbrainmask -bin veinbrainmask
 	$FSLDIR/bin/fslmaths veins -div `$FSLDIR/bin/fslstats veins -k veinbrainmask -P 50` -mul 2.18 -thr 10 -min 50 -div 50 veins
 	$FSLDIR/bin/flirt -in veins -ref example_func -applyxfm -init highres2example_func.mat -out veins_exf
@@ -835,7 +799,6 @@ fi
 cd ../..
 }
 
-RunFix () {
 ## ---------------------------------------------------------------------------
 ## Actually run FIX
 ## ---------------------------------------------------------------------------
@@ -882,12 +845,7 @@ log_Msg "using training data file: ${TrainingData}"
 # set up fix command
 # use array for whitespace safety, even if the rest of the script isn't
 if [[ ${doMotionRegression} == "TRUE" ]]; then
-	if [ $SURFGEOM = 0 ] ; then
     	fix_cmd=("${FSL_FIXDIR}/fix" "${concatfmrihp}.ica" "${TrainingData}" "${FixThresh}" -m -h "${AlreadyHP}")
-	else
-		fix_cmd=("${FSL_FIXDIR}/fix_hcp" "${concatfmri}.ica" "${TrainingData}" "${FixThresh}" -m -h "${AlreadyHP}")
-	fi
-
 else
     #-h is actually a subargument to -m, and will cause problems if specified without (or even not directly following) -m
 	# Update (11/8/2019): No longer true as of FIX 1.06.12, but since filtering of the CIFTI in MR-FIX occurs in
@@ -909,7 +867,7 @@ fi
 
 log_Msg "Done running FIX"
 
-}
+
 
 RunPostFix () {
 cd ${ConcatFolder}
@@ -923,7 +881,6 @@ if [ -f ${concatfmri}.ica/Atlas_clean.dtseries.nii ] ; then
 	log_Msg "Moving ${concatfmri}.ica/Atlas_clean.dtseries.nii to ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii"
 	/bin/mv ${concatfmri}.ica/Atlas_clean.dtseries.nii ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii
 	/bin/mv ${concatfmri}.ica/Atlas_clean_vn.dscalar.nii ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dscalar.nii
-	/bin/mv ${concatfmri}.ica/Atlas_unst.dtseries.nii ${concat_fmri_orig}_Atlas_hp${hp}_unst.dtseries.nii
 	${FSL_FIX_WBC} -cifti-math "TCS/VN" ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dtseries.nii -var TCS ${concat_fmri_orig}_Atlas_hp${hp}_clean.dtseries.nii -var VN ${concat_fmri_orig}_Atlas_hp${hp}_clean_vn.dscalar.nii -select 1 1 -repeat
 fi
 
