@@ -495,7 +495,7 @@ for fmri in $fmris ; do
 			log_Err_Abort "Unsupported MATLAB run mode value (FSL_FIX_MATLAB_MODE) in $FSL_FIXDIR/settings.sh: ${FSL_FIX_MATLAB_MODE}"
 			;;
 	esac
-	
+
     log_Msg "Dims: $(cat ${fmri}_dims.txt)"
   
 	# Demean the movement regressors (in the 'fake-NIFTI' format returned by functionhighpassandvariancenormalize)
@@ -589,6 +589,7 @@ done
 # It is also not variance normalized (the mean VN map *across runs* was "restored" above).
 # But is detrended and within run demeaned and variance normalized for both volume and CIFTI
 concatfmri=`basename ${ConcatNameNoExt}`  # Directory path is now removed
+concat_fmri_orig=`basename $(remove_ext ${ConcatName})`
 concatfmrihp=${concatfmri}_hp${hp}
 
 #MPH: Need to be in original directory here, for the ${MovementNIFTI*STRING} variables to work
@@ -600,8 +601,8 @@ mkdir ${ConcatFolder}/${concatfmrihp}.ica/mc
 fslmerge -tr ${ConcatFolder}/${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_conf_hp ${MovementNIFTIhpMergeSTRING} $tr
 fslmerge -tr ${ConcatFolder}/${concatfmrihp}.ica/mc/prefiltered_func_data_mcf_conf ${MovementNIFTIMergeSTRING} $tr
 
-cd `dirname $fmri`
-}
+#MPH: Now we can switch to ${ConcatFolder}
+cd ${ConcatFolder}
 
 ## "2nd pass" VN
 ## This is solely so that we can apply our own variance normalization as part of the spatial ICA, 
@@ -756,8 +757,6 @@ cd ../..
 ## Actually run FIX
 ## ---------------------------------------------------------------------------
 
-AlreadyHP="-1" #Don't run highpass on concatenated data
-cd ${ConcatFolder}
 log_Msg "Running FIX"
 
 # Changes to handle user specified training data file
@@ -774,7 +773,6 @@ if [ "X${TrainingData}" != X ]; then
 	if [ ! -f "${TrainingData}" ]; then 
 		TrainingData=${FSL_FIXDIR}/training_files/${TrainingData}
 	fi
-	log_Msg "User has specified a training data file: ${TrainingData}"
 	
 	# finally, if the TrainingData file is not found, report an error and get out of here
 	if [ ! -f "${TrainingData}" ]; then
@@ -790,7 +788,16 @@ else
 	#TSC: if you WANT to use, say, hp150 with hp2000 training, it should be explicitly requested by the user
 	#TSC: exception: we will recommend polynomial detrending for performance, and hp 2000 is already trained, and largely indistinguishable
 	log_Msg "training data file not specified"
-	training_hp="2000"
+	training_hp="${hp}"
+	if [[ ! -f "${FSL_FIXDIR}/training_files/HCP_hp${hp}.RData" ]]; then
+	    if [[ "${pdFlag}" == "TRUE" && "${hp}" != "pd0" ]]; then  # "hp=pd0" would be a demeaning only, so doesn't qualify here
+	        #hack: hp 2000 is close enough to a polynomial detrend, but the latter is far faster
+	        #we know the hp 2000 training data exists, so use it if we don't see an explicit hppd# set
+	        training_hp=2000
+	    else
+    	    log_Err_Abort "no standard training data found for specified high pass (${hp}), please specify training data manually or use a standard high pass setting"
+	    fi
+	fi	
 	TrainingData=${FSL_FIXDIR}/training_files/HCP_hp${training_hp}.RData
 fi
 log_Msg "using training data file: ${TrainingData}"
@@ -878,11 +885,6 @@ for fmri in $fmris ; do
 	fslmaths `remove_ext ${fmri}`_hp${hp}_clean.nii.gz -div `remove_ext ${concat_fmri_orig}`_hp${hp}_vn -mul `remove_ext ${fmri}`_hp${hp}_vn -add `remove_ext ${fmri}`_mean `remove_ext ${fmri}`_hp${hp}_clean.nii.gz
 	Start=`echo "${Start} + ${NumTPS}" | bc -l`
 done
-
-log_Msg "Finished"
-
-
-
 
 cd ${DIR}
 
