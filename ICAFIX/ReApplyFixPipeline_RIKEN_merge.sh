@@ -352,19 +352,6 @@ main()
 		MotionRegression=$(interpret_as_bool "${8}")
 	fi
 
-	# Turn MotionRegression into an appropriate numeric value for fix_3_clean
-	case $(echo ${MotionRegression} | tr '[:upper:]' '[:lower:]') in
-        ( true | yes | 1)
-            MotionRegression=1
-            ;;
-        ( false | no | none | 0)
-            MotionRegression=0
-            ;;
-		*)
-			log_Err_Abort "motion regression setting must be TRUE or FALSE"
-			;;
-	esac
-	
 	local DeleteIntermediates
 	if [ -z "${9}" ]; then
 		DeleteIntermediates=$(interpret_as_bool "${G_DEFAULT_DELETE_INTERMEDIATES}")
@@ -453,12 +440,56 @@ main()
 	log_Msg "Use fixlist=$fixlist"
 	
 	DIR=$(pwd)
-	cd ${StudyFolder}/${Subject}/MNINonLinear/Results/${fMRIName}/${fMRIName}${hpStr}.ica
+	cd ${StudyFolder}/${Subject}/MNINonLinear/Results/${fMRIName}
 
 	# Note: fix_3_clean does NOT filter the volume (NIFTI) data -- it assumes
 	# that any desired filtering has already been done outside of fix.
 	# So here, we need to symlink to the hp-filtered volume data.
-	$FSLDIR/bin/imln ../${fMRIName}${hpStr} filtered_func_data
+		# HOWEVER, if missing, only need to generate the hp-filtered volume data if DoVol=1.
+	# Otherwise (if DoVol=0), the only role of filtered_func_data in fix_3_clean is to determine the TR.
+	# In that case, we will just symlink the *non-filtered* data to filtered_func_data
+	# (as a hack for fix_3_clean to determine the TR without a time-consuming filtering step
+	# on the volume)
+
+	useNonFilteredAsFilteredFunc=0
+    if (( $($FSLDIR/bin/imtest "${fMRIName}${hpStr}") )); then
+		log_Warn "Using existing $($FSLDIR/bin/imglob -extension ${fMRIName}${hpStr}) (not re-filtering)"
+	else  # hp filtered volume file doesn't exist
+		if (( DoVol )); then  # need to actually refilter the volume data
+			if (( hp > 0 )); then
+				tr=`$FSLDIR/bin/fslval ${fMRIName} pixdim4`
+				log_Msg "tr: ${tr}"
+				log_Msg "processing FMRI file ${fMRIName} with highpass ${hp}"
+				hptr=$(echo "scale = 10; $hp / (2 * $tr)" | bc -l)
+
+				# Starting with FSL 5.0.7, 'fslmaths -bptf' no longer includes the temporal mean in its output.
+				# A work-around to this, which works with both the pre- and post-5.0.7 behavior is to compute
+				# the temporal mean, remove it, run -bptf, and then add the mean back in.
+				${FSLDIR}/bin/fslmaths ${fMRIName} -Tmean ${fMRIName}${hpStr}
+				highpass_cmd="${FSLDIR}/bin/fslmaths ${fMRIName} -sub ${fMRIName}${hpStr} -bptf ${hptr} -1 -add ${fMRIName}${hpStr} ${fMRIName}${hpStr}"
+				log_Msg "highpass_cmd: ${highpass_cmd}"
+				${highpass_cmd}
+			elif (( hp == 0 )); then
+				# Nothing in script currently detrends the volume if hp=0 is requested (which is the intended meaning of hp=0)
+				log_Err_Abort "hp = ${hp} not currently supported"
+			fi
+		else
+			useNonFilteredAsFilteredFunc=1
+		fi
+	fi
+
+	if [ ! -e ${fMRIName}${hpStr}.ica ]; then
+		log_Err_Abort "${fMRIName}${hpStr}.ica is expected to already exist, but does not"
+	fi
+	
+	cd ${fMRIName}${hpStr}.ica
+
+	# Create symlink for filtered_func_data (per comments above)
+	if (( useNonFilteredAsFilteredFunc )); then
+		$FSLDIR/bin/imln ../${fMRIName} filtered_func_data
+	else
+		$FSLDIR/bin/imln ../${fMRIName}${hpStr} filtered_func_data
+	fi
 
 	# However, hp-filtering of the *CIFTI* (dtseries) occurs within fix_3_clean.
 	# So here, we just create a symlink with the file name expected by
