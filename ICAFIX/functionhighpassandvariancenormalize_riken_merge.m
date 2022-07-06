@@ -1,6 +1,6 @@
 function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
 %
-% FUNCTIONHIGHPASSANDVARIANCENORMALIZE(TR,HP,FMRI,WBC,[REGSTRING])
+% FUNCTIONHIGHPASSANDVARIANCENORMALIZE(TR,HP,FMRI,WBC,[REGSTRING],[ndhpvol ndhpcifti ndconcatvol])
 % 
 % This function:
 % (1) Detrends / high-pass filters motion confounds, NIFTI (volume) and CIFTI files
@@ -25,6 +25,8 @@ function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
 % varargin: 
 % [REGSTRING]: Additional registration-related string to add to output file names. OPTIONAL.
 % [ndhpvol ndhpcifti ndconcatvol]: number of distributions highpassed volume, highpassed cifti and concatenated volume. OPTIONAL.
+% [docifti]: Calculate cifti. If you use this option, the [REGSTRING] and [ndhpvol ndhpcifti ndconcatvol] options must be specified. 
+%            If "" is specified for the [REGSTRING] and [ndhpvol ndhpcifti ndconcatvol] options, the default values are used.
 
 % Note: HP='pd0' would be interpreted as a true 0th order detrend, which is 
 % the same as demeaning. Mathematically, this is the same as the HP<0 condition,
@@ -42,6 +44,7 @@ end
 
 %% Defaults
 dovol = 1;
+docifti = 1;
 regstring = '';
 pdflag = false;  % Polynomial detrend
 pdstring = 'pd';  % Expected string at start of HP variable to request a "polynomial detrend"
@@ -58,16 +61,33 @@ if length(varargin) == 1 && ~isempty(varargin{1})
 	error('%s: REGSTRING should be a string', mfilename);
   end
 elseif length(varargin) >= 3
-  if ~isempty(varagin{4})
-    dovol = 0
-    regstring = varargin{4}
+  if ~isempty(varargin{4})
+    if ~isempty(varargin{1})
+      dovol = 0
+    end
+    regstring = varargin{1}
     if ~ischar(regstring)
 	  error('%s: REGSTRING should be a string', mfilename);
     end
+    ndhpvol=varargin{2}
+    ndhpcifti=varargin{3}
+    ndconcatvol=varargin{4}
+  else
+    ndhpvol=varargin{1}
+    ndhpcifti=varargin{2}
+    ndconcatvol=varargin{3}
+  if isempty(ndvol)
+    ndvol=2
   end
-  ndhpvol=varargin{1}
-  ndhpcifti=varargin{2}
-  ndconcatvol=varargin{3}
+  if isempty(ndvol)
+    ndhpcifti=3
+  end
+  if isempty(ndconcatvol)
+    ndvol=3
+  end
+  if ~isempty(varargin{5})
+    docifti=varargin{5}
+  end
   if ~isint(ndhpvol)
     error('%s: NDHPVOL should be an integer', mfilename);
   end
@@ -75,7 +95,10 @@ elseif length(varargin) >= 3
     error('%s: NDHPCIFTI should be an integer', mfilename);
   end
   if ~isint(ndconcatvol)
-	error('%s: NDCONCATVOL should be an integer', mfilename);
+	  error('%s: NDCONCATVOL should be an integer', mfilename);
+  end
+  if ~isint(docifti)
+    error('%s: DOCIFTI should be an integer', mfilename);
   end
 end
 
