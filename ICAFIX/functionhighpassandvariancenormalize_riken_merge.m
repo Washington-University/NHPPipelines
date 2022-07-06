@@ -54,39 +54,39 @@ hpstring = '';
 if length(varargin) == 1 && ~isempty(varargin{1})
   dovol = 0; %regname is only used for a new surface registration, so will never require redoing volume
   regstring = varargin{1}; %this has the underscore on the front already
-  ndhpvol=2
-  ndhpcifti=3
-  ndconcatvol=3
+  ndhpvol=2;
+  ndhpcifti=3;
+  ndconcatvol=3;
   if ~ischar(regstring)
 	error('%s: REGSTRING should be a string', mfilename);
   end
 elseif length(varargin) >= 3
   if ~isempty(varargin{4})
     if ~isempty(varargin{1})
-      dovol = 0
+      dovol = 0;
     end
-    regstring = varargin{1}
+    regstring = varargin{1};
     if ~ischar(regstring)
 	  error('%s: REGSTRING should be a string', mfilename);
     end
-    ndhpvol=varargin{2}
-    ndhpcifti=varargin{3}
-    ndconcatvol=varargin{4}
+    ndhpvol=varargin{2};
+    ndhpcifti=varargin{3};
+    ndconcatvol=varargin{4};
   else
-    ndhpvol=varargin{1}
-    ndhpcifti=varargin{2}
-    ndconcatvol=varargin{3}
+    ndhpvol=varargin{1};
+    ndhpcifti=varargin{2};
+    ndconcatvol=varargin{3};
   if isempty(ndvol)
-    ndvol=2
+    ndvol=2;
   end
   if isempty(ndvol)
-    ndhpcifti=3
+    ndhpcifti=3;
   end
   if isempty(ndconcatvol)
-    ndvol=3
+    ndvol=3;
   end
   if ~isempty(varargin{5})
-    docifti=varargin{5}
+    docifti=varargin{5};
   end
   if ~isint(ndhpvol)
     error('%s: NDHPVOL should be an integer', mfilename);
@@ -154,8 +154,9 @@ if hp>=0
 	%% normalise function is in HCPPIPEDIR/global/matlab/normalise.m
     confounds=normalise([confounds [zeros(1,size(confounds,2)); confounds(2:end,:)-confounds(1:end-1,:)] ]);
     confounds=normalise([confounds confounds.*confounds]);
-
-    BO=ciftiopen([fmri '_Atlas' regstring '.dtseries.nii'],WBC);
+    if docifti > 0
+      BO=ciftiopen([fmri '_Atlas' regstring '.dtseries.nii'],WBC);
+    end
 end
 
 %% Apply hp filtering of the motion confounds, volume (if requested), and CIFTI
@@ -188,9 +189,10 @@ if pdflag  % polynomial detrend case
         % Use -d flag in fslcpgeom (even if not technically necessary) to reduce possibility of mistakes when editing script
         call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri hpstring '.nii.gz -d']);
     end
-
-    BO.cdata=detrendpoly(BO.cdata',hp)';
-    ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+    if docifti > 0
+      BO.cdata=detrendpoly(BO.cdata',hp)';
+      ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+    end
 
 elseif hp>0  % "fslmaths -bptf" based filtering
     if dovol > 0
@@ -212,13 +214,15 @@ elseif hp>0  % "fslmaths -bptf" based filtering
         clear ctsfull;
     end
 
-    BOdimX=size(BO.cdata,1);  BOdimZnew=ceil(BOdimX/100);  BOdimT=size(BO.cdata,2);
-    save_avw(reshape([BO.cdata ; zeros(100*BOdimZnew-BOdimX,BOdimT)],10,10,BOdimZnew,BOdimT),'Atlas','f',[1 1 1 TR]);
-    call_fsl(sprintf('fslmaths Atlas -bptf %f -1 Atlas',0.5*hp/TR));
-    grot=reshape(single(read_avw('Atlas')),100*BOdimZnew,BOdimT);  BO.cdata=grot(1:BOdimX,:);  clear grot; 
-    ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
-    delete('Atlas.nii.gz');
+    if docifti > 0
+      BOdimX=size(BO.cdata,1);  BOdimZnew=ceil(BOdimX/100);  BOdimT=size(BO.cdata,2);
+      save_avw(reshape([BO.cdata ; zeros(100*BOdimZnew-BOdimX,BOdimT)],10,10,BOdimZnew,BOdimT),'Atlas','f',[1 1 1 TR]);
+      call_fsl(sprintf('fslmaths Atlas -bptf %f -1 Atlas',0.5*hp/TR));
+      grot=reshape(single(read_avw('Atlas')),100*BOdimZnew,BOdimT);  BO.cdata=grot(1:BOdimX,:);  clear grot; 
+      ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+    end
 
+    delete('Atlas.nii.gz');
 elseif hp<0  % If no hp filtering, still need to at least demean the volumetric time series
     if dovol > 0
 
@@ -247,8 +251,9 @@ if hp>=0
     if dovol > 0
         Outcts=icaDim(cts,0,1,-1,ndhpvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform 
     end
-
-    OutBO=icaDim(BO.cdata,0,1,-1,ndhpcifti); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, CIFTI fits three distributions to deal with volume to CIFTI mapping
+    if docifti > 0
+      OutBO=icaDim(BO.cdata,0,1,-1,ndhpcifti); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, CIFTI fits three distributions to deal with volume to CIFTI mapping
+    end
 else
     if dovol > 0
         Outcts=icaDim(cts,0,1,-1,ndconcatvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform  
@@ -267,12 +272,15 @@ if hp>=0
         clear vnfull;
         call_fsl(['fslcpgeom ' fmri '_mean.nii.gz ' fname ' -d']);
       end
-
-    VN=BO;
-    VN.cdata=OutBO.noise_unst_std;
+    if docifti > 0
+      VN=BO;
+      VN.cdata=OutBO.noise_unst_std;
+    end
     fname=[fmri '_Atlas' regstring hpstring '_vn.dscalar.nii'];
     disp(['saving ' fname]);
-    ciftisavereset(VN,fname,WBC);    
+    if docifti > 0
+      ciftisavereset(VN,fname,WBC);    
+    end
 end
 
 %% Apply VN and Save HP_VN TCS
@@ -290,14 +298,14 @@ if dovol > 0
     call_fsl(['fslcpgeom ' fmri '.nii.gz ' fname ' -d']); 
 end
 % For CIFTI, we can use the extension to distinguish between VN maps (.dscalar) and VN'ed time series (.dtseries)
-if hp>=0
+if hp>=0 && docifti
     BO.cdata=BO.cdata./repmat(OutBO.noise_unst_std,1,size(BO.cdata,2));
     ciftisave(BO,[fmri '_Atlas' regstring hpstring '_vn.dtseries.nii'],WBC); 
 end
 
 %Echo Dims
 %TSC: add the regstring to the output filename to avoid overwriting
-if hp>=0
+if hp>=0 && docifti > 0
     if dovol > 0
         dlmwrite([fmri regstring '_dims.txt'],[Outcts.calcDim OutBO.calcDim],'\t');
     else
