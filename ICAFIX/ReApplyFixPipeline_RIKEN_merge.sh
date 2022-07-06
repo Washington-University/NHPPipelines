@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #
 # # ReApplyFixPipeline.sh
 #
@@ -32,14 +31,11 @@
 #  Show usage information for this script
 # ------------------------------------------------------------------------------
 
-usage()
+show_usage()
 {
-	local script_name
-	script_name=$(basename "${0}")
-
 	cat <<EOF
 
-${script_name}: ReApplyFix Pipeline
+${g_script_name}: ReApplyFix Pipeline
 
 This script has two purposes:
 1) Reapply FIX cleanup to the volume and default CIFTI (i.e., MSMSulc registered surfaces)
@@ -48,7 +44,7 @@ following manual reclassification of the FIX signal/noise components (see ApplyH
 (either for the first time, or following manual reclassification of the components).
 Only one of these two purposes can be accomplished per invocation.
 
-Usage: ${script_name} PARAMETER...
+Usage: ${g_script_name} PARAMETER...
 
 PARAMETERs are [ ] = optional; < > = user supplied value
 
@@ -56,13 +52,13 @@ PARAMETERs are [ ] = optional; < > = user supplied value
         form) by simply specifying all values on the command line in the order they are
         listed below.
 
-        e.g. ${script_name} /path/to/study/folder 100307 rfMRI_REST1_LR 2000 ...
+        e.g. ${g_script_name} /path/to/study/folder 100307 rfMRI_REST1_LR 2000 ...
 
   [--help] : show usage information and exit
    --path=<path to study folder> OR --study-folder=<path to study folder>
    --subject=<subject ID>
    --fmri-name=<fMRI name> (Do not include path, nifti extension, or the 'hp' string).
-   --high-pass=<num> Number to represent the ${HighPass} variable used in ICA+FIX
+   --high-pass=<high-pass filter used in ICA+FIX>
    [--reg-name=<surface registration name> defaults to ${G_DEFAULT_REG_NAME}. (Use NONE for MSMSulc registration)
    [--low-res-mesh=<low res mesh number>] defaults to ${G_DEFAULT_LOW_RES_MESH}
    [--matlab-run-mode={0, 1, 2}] defaults to ${G_DEFAULT_MATLAB_RUN_MODE}
@@ -70,18 +66,26 @@ PARAMETERs are [ ] = optional; < > = user supplied value
      1 = Use interpreted MATLAB
      2 = Use interpreted Octave
    [--motion-regression={TRUE, FALSE}] defaults to ${G_DEFAULT_MOTION_REGRESSION}
+   [--delete-intermediates={TRUE, FALSE}] defaults to ${G_DEFAULT_DELETE_INTERMEDIATES}
+     If TRUE, deletes the high-pass filtered files.
 
 EOF
-exit 1;
 }
-[ "$1" = "" ] && usage
+
+# Establish defaults
+G_DEFAULT_REG_NAME="NONE"
+G_DEFAULT_LOW_RES_MESH=32
+G_DEFAULT_MATLAB_RUN_MODE=1		# Use interpreted MATLAB
+G_DEFAULT_MOTION_REGRESSION="FALSE"
+G_DEFAULT_DELETE_INTERMEDIATES="FALSE"
+
 # ------------------------------------------------------------------------------
 #  Get the command line options for this script.
 # ------------------------------------------------------------------------------
 
 get_options()
 {
-	local arguments=($@)
+	local arguments=("$@")
 
 	# initialize global output variables
 	unset p_StudyFolder      # ${1}
@@ -92,12 +96,14 @@ get_options()
 	unset p_LowResMesh       # ${6}
 	unset p_MatlabRunMode    # ${7}
 	unset p_MotionRegression # ${8}
+    unset p_DeleteIntermediates # ${9}
 
 	# set default values
 	p_RegName=${G_DEFAULT_REG_NAME}
 	p_LowResMesh=${G_DEFAULT_LOW_RES_MESH}
 	p_MatlabRunMode=${G_DEFAULT_MATLAB_RUN_MODE}
 	p_MotionRegression=${G_DEFAULT_MOTION_REGRESSION}
+	p_DeleteIntermediates=${G_DEFAULT_DELETE_INTERMEDIATES}
 
 	# parse arguments
 	local num_args=${#arguments[@]}
@@ -109,8 +115,8 @@ get_options()
 
 		case ${argument} in
 			--help)
-				usage
-				exit 1
+				show_usage
+				exit 0
 				;;
 			--path=*)
 				p_StudyFolder=${argument#*=}
@@ -148,8 +154,12 @@ get_options()
 				p_MotionRegression=${argument#*=}
 				index=$(( index + 1 ))
 				;;
+			--delete-intermediates=*)
+				p_DeleteIntermediates=${argument#*=}
+				index=$(( index + 1 ))
+				;;
 			*)
-				usage
+				show_usage
 				log_Err_Abort "unrecognized option: ${argument}"
 				;;
 		esac
@@ -228,6 +238,13 @@ get_options()
 		log_Msg "Motion Regression: ${p_MotionRegression}"
 	fi
 
+	if [ -z "${p_DeleteIntermediates}" ]; then
+		log_Err "delete intermediates setting (--delete-intermediates=) required"
+		error_count=$(( error_count + 1 ))
+	else
+		log_Msg "Delete Intermediates: ${p_DeleteIntermediates}"
+	fi
+
 	if [ ${error_count} -gt 0 ]; then
 		log_Err_Abort "For usage information, use --help"
 	fi
@@ -251,6 +268,13 @@ show_tool_versions()
 	log_Msg "Showing FSL version"
 	fsl_version_get fsl_ver
 	log_Msg "FSL version: ${fsl_ver}"
+
+	# Show specific FIX version, if available
+	if [ -f ${FSL_FIXDIR}/fixversion ]; then
+		fixversion=$(cat ${FSL_FIXDIR}/fixversion )
+		log_Msg "FIX version: $fixversion"
+	fi
+
 }
 
 # ------------------------------------------------------------------------------
@@ -271,6 +295,21 @@ have_hand_reclassification()
 	fi
 }
 
+function interpret_as_bool()
+{
+    case $(echo "$1" | tr '[:upper:]' '[:lower:]') in
+    (true | yes | 1)
+        echo 1
+        ;;
+    (false | no | none | 0)
+        echo 0
+        ;;
+    (*)
+        log_Err_Abort "error: '$1' is not valid for this argument, please use TRUE or FALSE"
+        ;;
+    esac
+}
+
 # ------------------------------------------------------------------------------
 #  Main processing of script.
 # ------------------------------------------------------------------------------
@@ -284,8 +323,9 @@ main()
 	local Subject="${2}"
 	local fMRIName="${3}"
 	local HighPass="${4}"
-	local RegName="${5}"
-	if [ -z "${5}" ]; then
+
+	local RegName
+		if [ -z "${5}" ]; then
 		RegName=${G_DEFAULT_REG_NAME}
 	else
 		RegName="${5}"
@@ -307,9 +347,9 @@ main()
 
 	local MotionRegression
 	if [ -z "${8}" ]; then
-		MotionRegression="${G_DEFAULT_MOTION_REGRESSION}"
+		MotionRegression=$(interpret_as_bool "${G_DEFAULT_MOTION_REGRESSION}")
 	else
-		MotionRegression="${8}"
+		MotionRegression=$(interpret_as_bool "${8}")
 	fi
 
 	# Turn MotionRegression into an appropriate numeric value for fix_3_clean
@@ -325,6 +365,13 @@ main()
 			;;
 	esac
 	
+	local DeleteIntermediates
+	if [ -z "${9}" ]; then
+		DeleteIntermediates=$(interpret_as_bool "${G_DEFAULT_DELETE_INTERMEDIATES}")
+	else
+		DeleteIntermediates=$(interpret_as_bool "${9}")
+	fi
+
 	# Log values retrieved from positional parameters
 	log_Msg "StudyFolder: ${StudyFolder}"
 	log_Msg "Subject: ${Subject}"
@@ -334,6 +381,7 @@ main()
 	log_Msg "LowResMesh: ${LowResMesh}"
 	log_Msg "MatlabRunMode: ${MatlabRunMode}"
 	log_Msg "MotionRegression: ${MotionRegression}"
+    log_Msg "DeleteIntermediates: ${DeleteIntermediates}"
 
 	# Naming Conventions and other variables
 	local Caret7_Command="${CARET7DIR}/wb_command"
@@ -352,29 +400,25 @@ main()
 
 	log_Msg "RegString: ${RegString}"
 
-	# For interpreted modes, make sure that matlab/octave has access to the functions it needs.
+	# For INTERPRETED MODES, make sure that matlab/octave has access to the functions it needs.
 	# Since we are NOT using the ${FSL_FIXDIR}/call_matlab.sh script to invoke matlab (unlike 'hcp_fix')
 	# we need to explicitly add ${FSL_FIXDIR} (all the fix-related functions)
 	# and ${FSL_MATLAB_PATH} (e.g., read_avw.m, save_avw.m) to the matlab path.
 	# Several additional necessary environment variables (e.g., ${FSL_FIX_CIFTIRW} and ${FSL_FIX_WBC})
-	# are set in FSL_FIXDIR/settings.sh, which is sourced below for interpreted modes.
-	# Note that the ciftiopen.m, ciftisave.m functions are added to the path through the ${FSL_FIX_WBC} 
+	# are set in ${FSL_FIXDIR}/settings.sh, which is sourced below for interpreted modes.
+	# Note that the ciftiopen.m, ciftisave.m functions are *appended* to the path through the ${FSL_FIX_CIFTIRW} 
 	# environment variable within fix_3_clean.m itself.
+		# Note that we are NOT adding '${HCPPIPEDIR}/global/matlab' to the path (which also contains the
+	# CIFTI I/O functions as well), so the versions in ${FSL_FIX_CIFTIRW} will be the ones that get used
+	# (assuming that the user hasn't further customized their matlab path, e.g., via a startup.m addition).
 	export FSL_MATLAB_PATH="${FSLDIR}/etc/matlab"
 	local ML_PATHS="addpath('${FSL_FIXDIR}'); addpath('${FSL_MATLAB_PATH}');"
 
-	#export FSL_FIX_CIFTIRW="${HCPPIPEDIR}/ReApplyFix/scripts"
-	#export FSL_FIX_WBC="${Caret7_Command}"
-
-	# Make appropriate files if they don't exist
-
+	# Some defaults
 	local aggressive=0
-	#local domot=1
 	local hp=${HighPass}
 	local DoVol=0
 	local fixlist=".fix"
-
-	#local fixlist
 
 	if (( hp >= 0 )); then
 		hpStr="_hp${hp}"
@@ -386,7 +430,9 @@ main()
 	# (although if someone includes the hp string as part fMRIName itself, the script will still break)
 	fMRIName=$(basename $($FSLDIR/bin/remove_ext $fMRIName))
 
-	if have_hand_reclassification ${StudyFolder} ${Subject} ${fMRIName} ${HighPass} ; then
+	# If we have a hand classification and no regname, reapply fix to the volume as well
+	if have_hand_reclassification ${StudyFolder} ${Subject} ${fMRIName} ${hp}
+	then
 		fixlist="HandNoise.txt"
 		#TSC: if regname (which applies to the surface) isn't NONE, assume the hand classification was previously already applied to the volume data
 		if [[ "${RegName}" == "NONE" ]]
@@ -400,11 +446,12 @@ main()
 	# It is for that reason that the code below needs to use separate calls to fix_3_clean, with and without DoVol
 	# as an argument, rather than simply passing in the value of DoVol as set within this script.
 	# Not sure if/when this non-intuitive behavior of fix_3_clean will change, but this is accurate as of fix1.067
+	# UPDATE (11/8/2019): As of FIX 1.06.12, fix_3_clean interprets its 5th argument ("DoVol") in the usual boolean
+	# manner. However, since we already had a work-around to this problem, we will leave the code unchanged so that
+	# we don't need to add a FIX version dependency to the script.
+
 	log_Msg "Use fixlist=$fixlist"
 	
-	#local fmri_orig="${fMRIName}"
-	#local fmri=${fMRIName}
-
 	DIR=$(pwd)
 	cd ${StudyFolder}/${Subject}/MNINonLinear/Results/${fMRIName}/${fMRIName}${hpStr}.ica
 
@@ -413,7 +460,7 @@ main()
 	# So here, we need to symlink to the hp-filtered volume data.
 	$FSLDIR/bin/imln ../${fMRIName}${hpStr} filtered_func_data
 
-	# However, hp-filtering of the CIFTI (dtseries) occurs within fix_3_clean.
+	# However, hp-filtering of the *CIFTI* (dtseries) occurs within fix_3_clean.
 	# So here, we just create a symlink with the file name expected by
 	# fix_3_clean ("Atlas.dtseries.nii") to the non-filtered data.
 	if [ -f ../${fMRIName}_Atlas${RegString}.dtseries.nii ] ; then
@@ -480,9 +527,9 @@ main()
 			# If ${FSL_FIX_MCR} is already defined in the environment, use that for the MCR location.
 			# If not, the appropriate MCR version for use with fix_3_clean should be set in $FSL_FIXDIR/settings.sh.
 			if [ -z "${FSL_FIX_MCR}" ]; then
-				set +e
+				debug_disable_trap
 				source ${FSL_FIXDIR}/settings.sh
-				set -e
+				debug_enable_trap
 				export FSL_FIX_WBC="${Caret7_Command}"
 				# If FSL_FIX_MCR is still not defined after sourcing settings.sh, we have a problem
 				if [ -z "${FSL_FIX_MCR}" ]; then
@@ -522,7 +569,7 @@ main()
 			# Use bash redirection ("here-string") to pass multiple commands into matlab
 			# (Necessary to protect the semicolons that separate matlab commands, which would otherwise
 			# get interpreted as separating different bash shell commands)
-			(set +e; source "${FSL_FIXDIR}/settings.sh"; set -e; export FSL_FIX_WBC="${Caret7_Command}"; "${interpreter[@]}" <<<"${matlab_cmd}")
+			(debug_disable_trap; source "${FSL_FIXDIR}/settings.sh"; debug_enable_trap; export FSL_FIX_WBC="${Caret7_Command}"; "${interpreter[@]}" <<<"${matlab_cmd}")
 			;;
 
 		*)
@@ -558,7 +605,7 @@ main()
 	# Rename some of the outputs from fix_3_clean.
 	# Note that the variance normalization ("_vn") outputs require use of fix1.067 or later
 	# So check whether those files exist before moving/renaming them
-	if [ -f ${fmrihp}.ica/Atlas_clean.dtseries.nii ] ; then
+	if [ -f ${fmrihp}.ica/Atlas_clean.dtseries.nii ]; then
 		/bin/mv ${fmrihp}.ica/Atlas_clean.dtseries.nii ${fmri}_Atlas${RegString}${hpStr}_clean.dtseries.nii
 	else
 	    log_Err_Abort "Something went wrong; ${fmrihp}.ica/Atlas_clean.dtseries.nii wasn't created"
@@ -581,45 +628,64 @@ main()
     # Remove the 'fake-NIFTI' file created in fix_3_clean for high-pass filtering of the CIFTI (if it exists)
 	$FSLDIR/bin/imrm ${fmrihp}.ica/Atlas
 	
-	cd ${DIR}
+	# Always delete things with too-generic names
+	$FSLDIR/bin/imrm ${fmrihp}.ica/filtered_func_data
+	rm -f ${fmrihp}.ica/Atlas.dtseries.nii
+	
+	# Optional deletion of highpass intermediates
+    if [ "${DeleteIntermediates}" == "1" ] ; then
+		if (( hp > 0 )); then  # fix_3_clean only writes out the hp-filtered time series if hp > 0
+			$FSLDIR/bin/imrm ${fmri}_hp${hp}  # Explicitly use _hp${hp} here (rather than $hpStr as a safeguard against accidental deletion of the non-hp-filtered timeseries)
+			rm -f ${fmrihp}.ica/Atlas_hp_preclean.dtseries.nii
+		fi
+	else
+		#even if we don't delete it, don't leave this file with a hard to interpret name 
+		if (( hp > 0 )); then
+			# 'OR' mv command with "true" to avoid returning an error code if file doesn't exist for some reason
+			mv -f ${fmrihp}.ica/Atlas_hp_preclean.dtseries.nii ${fmri}_Atlas_hp${hp}.dtseries.nii || true 
+		fi
+     fi
+
+	cd ${DIR}  # Return to directory where script was launched
 
 	log_Msg "Completed!"
-
 }
 
 # ------------------------------------------------------------------------------
 #  "Global" processing - everything above here should be in a function
 # ------------------------------------------------------------------------------
 
-set -e # If any command exits with non-zero value, this script exits
-
-# Establish defaults
-G_DEFAULT_REG_NAME="NONE"
-G_DEFAULT_LOW_RES_MESH=32
-G_DEFAULT_MATLAB_RUN_MODE=1		# Use interpreted MATLAB
-G_DEFAULT_MOTION_REGRESSION="FALSE"
-
 # Set global variables
 g_script_name=$(basename "${0}")
 
 # Allow script to return a Usage statement, before any other output
 if [ "$#" = "0" ]; then
-    usage
+    show_usage
     exit 1
 fi
 
 # Verify that HCPPIPEDIR environment variable is set
 if [ -z "${HCPPIPEDIR}" ]; then
-	echo "$(basename ${0}): ABORTING: HCPPIPEDIR environment variable must be set"
+	echo "${g_script_name}: ABORTING: HCPPIPEDIR environment variable must be set"
     exit 1
 fi
 
 # Load function libraries
-source "${HCPPIPEDIR}/global/scripts/log.shlib" # Logging related functions
-source "${HCPPIPEDIR}/global/scripts/fsl_version.shlib" # Function for getting FSL version
-log_Msg "HCPPIPEDIR: ${HCPPIPEDIR}"
+source "${HCPPIPEDIR}/global/scripts/debug.shlib" "$@"         # Debugging functions; also sources log.shlib
+source ${HCPPIPEDIR}/global/scripts/opts.shlib                 # Command line option functions
+source "${HCPPIPEDIR}/global/scripts/fsl_version.shlib"        # Functions for getting FSL version
 
-# Verify any other needed environment variables are set
+opts_ShowVersionIfRequested $@
+
+if opts_CheckForHelpRequest $@; then
+	show_usage
+	exit 0
+fi
+
+${HCPPIPEDIR}/show_version
+
+# Verify required environment variables are set and log value
+log_Check_Env_Var HCPPIPEDIR
 log_Check_Env_Var CARET7DIR
 log_Check_Env_Var FSLDIR
 log_Check_Env_Var FSL_FIXDIR
@@ -627,7 +693,7 @@ log_Check_Env_Var FSL_FIXDIR
 # Show tool versions
 show_tool_versions
 
-# Determine whether named or positional parameters are used
+# Determine whether named or positional parameters are used and invoke the 'main' function
 if [[ ${1} == --* ]]; then
 	# Named parameters (e.g. --parameter-name=parameter-value) are used
 	log_Msg "Using named parameters"
@@ -636,9 +702,9 @@ if [[ ${1} == --* ]]; then
 	get_options "$@"
 
 	# Invoke main functionality
-	#     ${1}               ${2}           ${3}            ${4}            ${5}           ${6}              ${7}           ${8}
-	main "${p_StudyFolder}" "${p_Subject}" "${p_fMRIName}" "${p_HighPass}" "${p_RegName}" "${p_LowResMesh}" "${p_MatlabRunMode}" "${p_MotionRegression}"
-
+	#     ${1}               ${2}           ${3}            ${4}            ${5}           ${6}              ${7}                ${8}                    ${9}
+	main "${p_StudyFolder}" "${p_Subject}" "${p_fMRIName}" "${p_HighPass}" "${p_RegName}" "${p_LowResMesh}" "${p_MatlabRunMode}" "${p_MotionRegression}" "${p_DeleteIntermediates}"
+	
 else
 	# Positional parameters are used
 	log_Msg "Using positional parameters"
