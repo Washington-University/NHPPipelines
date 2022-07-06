@@ -24,7 +24,7 @@ function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
 % WBC: wb_command (full path)
 % varargin: 
 % [REGSTRING]: Additional registration-related string to add to output file names. OPTIONAL.
-% [ndhpvol ndhpcifti ndvol]: number of distributions highpassed volume, highpassed cifti and concatenated volume. OPTIONAL.
+% [ndhpvol ndhpcifti ndconcatvol]: number of distributions highpassed volume, highpassed cifti and concatenated volume. OPTIONAL.
 
 % Note: HP='pd0' would be interpreted as a true 0th order detrend, which is 
 % the same as demeaning. Mathematically, this is the same as the HP<0 condition,
@@ -53,7 +53,7 @@ if length(varargin) == 1 && ~isempty(varargin{1})
   regstring = varargin{1}; %this has the underscore on the front already
   ndhpvol=2
   ndhpcifti=3
-  ndvol=3
+  ndconcatvol=3
   if ~ischar(regstring)
 	error('%s: REGSTRING should be a string', mfilename);
   end
@@ -67,22 +67,22 @@ elseif length(varargin) >= 3
   end
   ndhpvol=varargin{1}
   ndhpcifti=varargin{2}
-  ndvol=varargin{3}
+  ndconcatvol=varargin{3}
   if ~isint(ndhpvol)
     error('%s: NDHPVOL should be an integer', mfilename);
   end
   if ~isint(ndhpcifti)
     error('%s: NDHPCIFTI should be an integer', mfilename);
   end
-  if ~isint(ndvol)
-	error('%s: NDVOL should be an integer', mfilename);
+  if ~isint(ndconcatvol)
+	error('%s: NDCONCATVOL should be an integer', mfilename);
   end
 end
 
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
-%   Default value: ndhpvol=2;ndhpcifti=3; ndvol=3; - Takuya Hayashi, Matt Glasser
-fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndvol)
+%   Default value: ndhpvol=2;ndhpcifti=3; ndconcatvol=3; - Takuya Hayashi, Matt Glasser
+fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndconcatvol)
 
 
 % Check whether polynomial detrend is being requested for the high-pass filtering.
@@ -228,7 +228,7 @@ if hp>=0
     OutBO=icaDim(BO.cdata,0,1,-1,ndhpcifti); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, CIFTI fits three distributions to deal with volume to CIFTI mapping
 else
     if dovol > 0
-        Outcts=icaDim(cts,0,1,-1,ndvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform  
+        Outcts=icaDim(cts,0,1,-1,ndconcatvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform  
     end
 end
 
@@ -285,7 +285,7 @@ else
     dlmwrite([fmri '_dims.txt'],[Outcts.calcDim],'\t');
 end
 
-dlmwrite([fmri '_wf.txt'],[ndhpvol ndhpcifti ndvol],'\t');
+dlmwrite([fmri '_wf.txt'],[ndhpvol ndhpcifti ndconcatvol],'\t');
 end
 
 
