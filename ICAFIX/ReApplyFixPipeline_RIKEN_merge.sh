@@ -74,7 +74,13 @@ EOF
 
 # Establish defaults
 G_DEFAULT_REG_NAME="NONE"
-G_DEFAULT_LOW_RES_MESH=32
+if [[ $SPECIES =~ "Macaque ]] ; then
+   G_DEFAULT_LOW_RES_MESH=10
+elif [[ $SPECIES =~ "Marmoset" ]] ; then
+   G_DEFAULT_LOW_RES_MESH=4
+else
+   G_DEFAULT_LOW_RES_MESH=32
+fi
 G_DEFAULT_MATLAB_RUN_MODE=1		# Use interpreted MATLAB
 G_DEFAULT_MOTION_REGRESSION="FALSE"
 G_DEFAULT_DELETE_INTERMEDIATES="FALSE"
@@ -381,9 +387,9 @@ main()
 		RegString=""
 	fi
 	
-#	if [ ! -z ${LowResMesh} ] && [ ${LowResMesh} != ${G_DEFAULT_LOW_RES_MESH} ]; then
-#		RegString="${RegString}.${LowResMesh}k"
-#	fi  # This was tentatively commented out for NHP - Takuya Hayashi, perhaps G_DEFAULT_LOW_RES_MESH should be defined somewhere else for each species
+	if [ ! -z ${LowResMesh} ] && [ ${LowResMesh} != ${G_DEFAULT_LOW_RES_MESH} ]; then
+		RegString="${RegString}.${LowResMesh}k"
+	fi
 
 	log_Msg "RegString: ${RegString}"
 
