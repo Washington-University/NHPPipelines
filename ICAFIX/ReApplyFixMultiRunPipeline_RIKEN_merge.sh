@@ -564,11 +564,11 @@ main()
 if [ -e ${ConcatNameNoExt}_hp${hp}_wf.txt ] ; then
 	ndhpvol="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $1}'`"
 	ndhpcifti="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $2}'`"
-	ndcifti="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $3}'`"
+	ndconcatvol="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $3}'`"
 elif [ -z "$p_WF" ] ; then
 	ndhpvol="`echo $p_WF | cut -d ',' -f1`"
 	ndhpcifti="`echo $p_WF | cut -d ',' -f2`"
-	ndcifti="`echo $p_WF | cut -d ',' -f3`"
+	ndconcatvol="`echo $p_WF | cut -d ',' -f3`"
 else	
 	log_Err_Abort "ERROR: cannot find Ndist used in MR-FIX. Please use option --wf to set Ndist"
 fi
@@ -715,8 +715,8 @@ fi
 			fi
 				
 			# ${hp} needs to be passed in as a string, to handle the hp=pd* case
-			local matlab_cmd="${ML_PATHS} functionhighpassandvariancenormalize(${tr}, '${hp}', '${fmri}', '${Caret7_Command}', '${RegString}');"
-				
+			local matlab_cmd="${ML_PATHS} functionhighpassandvariancenormalize(${tr}, '${hp}', '${fmri}', '${Caret7_Command}','${RegString}', '${ndhpvol}', '${ndhpcifti}', '${ndconcatvol}');"
+	
 			log_Msg "Run interpreted MATLAB/Octave (${interpreter[@]}) with command..."
 			log_Msg "${matlab_cmd}"
 
@@ -1088,22 +1088,6 @@ fi
 	    Start=`echo "${Start} + ${NumTPS}" | bc -l`
 	done
 
-	## ---------------------------------------------------------------------------
-	## Remove all the large time series files in ${ConcatFolder}
-	## ---------------------------------------------------------------------------
-
-	## Deleting these files would save a lot of space.
-	## But downstream scripts (e.g., RestingStateStats) assume they exist, and
-	## if deleted they would therefore need to be re-created "on the fly" later
-
-	# cd ${ConcatFolder}
-        # log_Msg "Removing large (concatenated) time series files from ${ConcatFolder}"
-	# $FSLDIR/bin/imrm ${concatfmri}
-	# $FSLDIR/bin/imrm ${concatfmri}_hp${hp}
-	# $FSLDIR/bin/imrm ${concatfmri}_hp${hp}_clean
-	# /bin/rm -f ${concatfmri}_Atlas${RegString}.dtseries.nii
-	# /bin/rm -f ${concatfmri}_Atlas${RegString}_hp${hp}.dtseries.nii
-	# /bin/rm -f ${concatfmri}_Atlas${RegString}_hp${hp}_clean.dtseries.nii
 	cd ${DIR}
 
 	log_Msg "Completed!"
@@ -1112,14 +1096,6 @@ fi
 # ------------------------------------------------------------------------------
 #  "Global" processing - everything above here should be in a function
 # ------------------------------------------------------------------------------
-
-set -e # If any command exits with non-zero value, this script exits
-
-# Establish defaults
-G_DEFAULT_REG_NAME="NONE"
-G_DEFAULT_LOW_RES_MESH=32
-G_DEFAULT_MATLAB_RUN_MODE=1		# Use interpreted MATLAB
-G_DEFAULT_MOTION_REGRESSION="FALSE"
 
 # Set global variables
 g_script_name=$(basename "${0}")
@@ -1158,9 +1134,6 @@ log_Check_Env_Var FSL_FIXDIR
 
 # Show tool versions
 show_tool_versions
-
-# Establish default MATLAB run mode
-G_DEFAULT_MATLAB_RUN_MODE=1		# Use interpreted MATLAB
 
 # Establish default low res mesh for NHP
 if [ "$SPECIES" = "Macaque" ] ; then

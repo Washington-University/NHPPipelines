@@ -564,11 +564,11 @@ main()
 	if [ -e ${ConcatNameNoExt}_hp${hp}_wf.txt ] ; then
 		ndhpvol="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $1}'`"
 		ndhpcifti="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $2}'`"
-		ndcifti="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $3}'`"
+		ndconcatvol="`cat ${ConcatNameNoExt}_hp${hp}_wf.txt | awk '{print $3}'`"
 	elif [ -z "$p_WF" ] ; then
 		ndhpvol="`echo $p_WF | cut -d ',' -f1`"
 		ndhpcifti="`echo $p_WF | cut -d ',' -f2`"
-		ndcifti="`echo $p_WF | cut -d ',' -f3`"
+		ndconcatvol="`echo $p_WF | cut -d ',' -f3`"
 	else	
 		log_Err_Abort "ERROR: cannot find Ndist used in MR-FIX. Please use option --wf to set Ndist"
 	fi
@@ -715,7 +715,7 @@ main()
 				fi
 				
 				# ${hp} needs to be passed in as a string, to handle the hp=pd* case
-				local matlab_cmd="${ML_PATHS} functionhighpassandvariancenormalize(${tr}, '${hp}', '${fmri}', '${Caret7_Command}', '${RegString}');"
+				local matlab_cmd="${ML_PATHS} functionhighpassandvariancenormalize(${tr}, '${hp}', '${fmri}', '${Caret7_Command}','${RegString}', '${ndhpvol}', '${ndhpcifti}', '${ndconcatvol}');"
 				
 				log_Msg "Run interpreted MATLAB/Octave (${interpreter[@]}) with command..."
 				log_Msg "${matlab_cmd}"

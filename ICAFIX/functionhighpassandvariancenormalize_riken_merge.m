@@ -1,6 +1,6 @@
 function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
 %
-% FUNCTIONHIGHPASSANDVARIANCENORMALIZE(TR,HP,FMRI,WBC,[REGSTRING])
+% FUNCTIONHIGHPASSANDVARIANCENORMALIZE(TR,HP,FMRI,WBC,[REGSTRING],[ndhpvol ndhpcifti ndconcatvol])
 % 
 % This function:
 % (1) Detrends / high-pass filters motion confounds, NIFTI (volume) and CIFTI files
@@ -24,8 +24,10 @@ function functionhighpassandvariancenormalize(TR,hp,fmri,WBC,varargin)
 % WBC: wb_command (full path)
 % varargin: 
 % [REGSTRING]: Additional registration-related string to add to output file names. OPTIONAL.
-% [ndhpvol ndhpcifti ndvol]: number of distributions highpassed volume, highpassed cifti and concatenated volume. OPTIONAL.
-  
+% [ndhpvol ndhpcifti ndconcatvol]: number of distributions highpassed volume, highpassed cifti and concatenated volume. OPTIONAL.
+% [docifti]: Calculate cifti. If you use this option, the [REGSTRING] and [ndhpvol ndhpcifti ndconcatvol] options must be specified. 
+%            If "" is specified for the [REGSTRING] and [ndhpvol ndhpcifti ndconcatvol] options, the default values are used.
+
 % Note: HP='pd0' would be interpreted as a true 0th order detrend, which is 
 % the same as demeaning. Mathematically, this is the same as the HP<0 condition,
 % but the output files will be named differently (i.e., include '_hppd0'), and additional
@@ -42,6 +44,7 @@ end
 
 %% Defaults
 dovol = 1;
+docifti = 1;
 regstring = '';
 pdflag = false;  % Polynomial detrend
 pdstring = 'pd';  % Expected string at start of HP variable to request a "polynomial detrend"
@@ -51,38 +54,58 @@ hpstring = '';
 if length(varargin) == 1 && ~isempty(varargin{1})
   dovol = 0; %regname is only used for a new surface registration, so will never require redoing volume
   regstring = varargin{1}; %this has the underscore on the front already
-  ndhpvol=2
-  ndhpcifti=3
-  ndvol=3
+  ndhpvol=2;
+  ndhpcifti=3;
+  ndconcatvol=3;
   if ~ischar(regstring)
 	error('%s: REGSTRING should be a string', mfilename);
   end
 elseif length(varargin) >= 3
-  if ~isempty(varagin{4})
-    dovol = 0
-    regstring = varargin{4}
+  if ~isempty(varargin{4})
+    if ~isempty(varargin{1})
+      dovol = 0;
+    end
+    regstring = varargin{1};
     if ~ischar(regstring)
 	  error('%s: REGSTRING should be a string', mfilename);
     end
+    ndhpvol=varargin{2};
+    ndhpcifti=varargin{3};
+    ndconcatvol=varargin{4};
+  else
+    ndhpvol=varargin{1};
+    ndhpcifti=varargin{2};
+    ndconcatvol=varargin{3};
+  if isempty(ndvol)
+    ndvol=2;
   end
-  ndhpvol=varargin{1}
-  ndhpcifti=varargin{2}
-  ndvol=varargin{3}
+  if isempty(ndvol)
+    ndhpcifti=3;
+  end
+  if isempty(ndconcatvol)
+    ndvol=3;
+  end
+  if ~isempty(varargin{5})
+    docifti=varargin{5};
+  end
   if ~isint(ndhpvol)
     error('%s: NDHPVOL should be an integer', mfilename);
   end
   if ~isint(ndhpcifti)
     error('%s: NDHPCIFTI should be an integer', mfilename);
   end
-  if ~isint(ndvol)
-	error('%s: NDVOL should be an integer', mfilename);
+  if ~isint(ndconcatvol)
+	  error('%s: NDCONCATVOL should be an integer', mfilename);
+  end
+  if ~isint(docifti)
+    error('%s: DOCIFTI should be an integer', mfilename);
   end
 end
 
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
-%   Default value: ndhpvol=2;ndhpcifti=3; ndvol=3; - Takuya Hayashi, Matt Glasser
-fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndvol)
+%   Default value: ndhpvol=2;ndhpcifti=3; ndconcatvol=3; - Takuya Hayashi, Matt Glasser
+fprintf('hp=%d, ndist=%d,%d,%d',hp,ndhpvol,ndhpcifti,ndconcatvol)
 
 
 % Check whether polynomial detrend is being requested for the high-pass filtering.
@@ -131,8 +154,9 @@ if hp>=0
 	%% normalise function is in HCPPIPEDIR/global/matlab/normalise.m
     confounds=normalise([confounds [zeros(1,size(confounds,2)); confounds(2:end,:)-confounds(1:end-1,:)] ]);
     confounds=normalise([confounds confounds.*confounds]);
-
-    BO=ciftiopen([fmri '_Atlas' regstring '.dtseries.nii'],WBC);
+    if docifti > 0
+      BO=ciftiopen([fmri '_Atlas' regstring '.dtseries.nii'],WBC);
+    end
 end
 
 %% Apply hp filtering of the motion confounds, volume (if requested), and CIFTI
@@ -165,9 +189,10 @@ if pdflag  % polynomial detrend case
         % Use -d flag in fslcpgeom (even if not technically necessary) to reduce possibility of mistakes when editing script
         call_fsl(['fslcpgeom ' fmri '.nii.gz ' fmri hpstring '.nii.gz -d']);
     end
-    
-    BO.cdata=detrendpoly(BO.cdata',hp)';
-    ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+    if docifti > 0
+      BO.cdata=detrendpoly(BO.cdata',hp)';
+      ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+    end
 
 elseif hp>0  % "fslmaths -bptf" based filtering
     if dovol > 0
@@ -188,14 +213,16 @@ elseif hp>0  % "fslmaths -bptf" based filtering
         cts=ctsfull(ctsmask,:); 
         clear ctsfull;
     end
-    
-    BOdimX=size(BO.cdata,1);  BOdimZnew=ceil(BOdimX/100);  BOdimT=size(BO.cdata,2);
-    save_avw(reshape([BO.cdata ; zeros(100*BOdimZnew-BOdimX,BOdimT)],10,10,BOdimZnew,BOdimT),'Atlas','f',[1 1 1 TR]);
-    call_fsl(sprintf('fslmaths Atlas -bptf %f -1 Atlas',0.5*hp/TR));
-    grot=reshape(single(read_avw('Atlas')),100*BOdimZnew,BOdimT);  BO.cdata=grot(1:BOdimX,:);  clear grot;
-    ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
-    delete('Atlas.nii.gz');
 
+    if docifti > 0
+      BOdimX=size(BO.cdata,1);  BOdimZnew=ceil(BOdimX/100);  BOdimT=size(BO.cdata,2);
+      save_avw(reshape([BO.cdata ; zeros(100*BOdimZnew-BOdimX,BOdimT)],10,10,BOdimZnew,BOdimT),'Atlas','f',[1 1 1 TR]);
+      call_fsl(sprintf('fslmaths Atlas -bptf %f -1 Atlas',0.5*hp/TR));
+      grot=reshape(single(read_avw('Atlas')),100*BOdimZnew,BOdimT);  BO.cdata=grot(1:BOdimX,:);  clear grot; 
+      ciftisave(BO,[fmri '_Atlas' regstring hpstring '.dtseries.nii'],WBC);
+    end
+
+    delete('Atlas.nii.gz');
 elseif hp<0  % If no hp filtering, still need to at least demean the volumetric time series
     if dovol > 0
 
@@ -209,7 +236,7 @@ elseif hp<0  % If no hp filtering, still need to at least demean the volumetric 
         clear ctsfull;
         
         cts=demean(cts')';
-    end
+  end
 
 end
 
@@ -224,11 +251,12 @@ if hp>=0
     if dovol > 0
         Outcts=icaDim(cts,0,1,-1,ndhpvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform 
     end
-    
-    OutBO=icaDim(BO.cdata,0,1,-1,ndhpcifti); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, CIFTI fits three distributions to deal with volume to CIFTI mapping
+    if docifti > 0
+      OutBO=icaDim(BO.cdata,0,1,-1,ndhpcifti); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, CIFTI fits three distributions to deal with volume to CIFTI mapping
+    end
 else
     if dovol > 0
-        Outcts=icaDim(cts,0,1,-1,ndvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform  
+        Outcts=icaDim(cts,0,1,-1,ndconcatvol); %0=Don't detrend, 1=Initialize variance normalization at 1, -1=Converge with running dim average, Volume fits two distributions to deal with MNI transform  
     end
 end
 
@@ -236,27 +264,30 @@ end
 % (Only need these for the individual runs, which, per above, are expected to be passed in with hp requested).
 if hp>=0
     if dovol > 0
-        fname=[fmri hpstring '_vn.nii.gz'];
+       fname=[fmri hpstring '_vn.nii.gz'];
         vnfull=zeros(ctsX*ctsY*ctsZ,1, 'single');
         vnfull(ctsmask)=Outcts.noise_unst_std;
           
         save_avw(reshape(vnfull,ctsX,ctsY,ctsZ,1),fname,'f',[1 1 1 1]); 
         clear vnfull;
         call_fsl(['fslcpgeom ' fmri '_mean.nii.gz ' fname ' -d']);
+      end
+    if docifti > 0
+      VN=BO;
+      VN.cdata=OutBO.noise_unst_std;
     end
-
-    VN=BO;
-    VN.cdata=OutBO.noise_unst_std;
     fname=[fmri '_Atlas' regstring hpstring '_vn.dscalar.nii'];
     disp(['saving ' fname]);
-    ciftisavereset(VN,fname,WBC);    
+    if docifti > 0
+      ciftisavereset(VN,fname,WBC);    
+    end
 end
 
 %% Apply VN and Save HP_VN TCS
 % Here, NIFTI VN'ed TCS gets saved regardless of whether hp>=0 (i.e., regardless of whether individual or concatenated run)
 % But CIFTI version of TCS only saved if hp>0
 if dovol > 0
-    cts=cts./repmat(Outcts.noise_unst_std,1,ctsT);
+  cts=cts./repmat(Outcts.noise_unst_std,1,ctsT);
     % Use '_vnts' (volume normalized time series) as the suffix for the volumetric VN'ed TCS
     fname=[fmri hpstring '_vnts.nii.gz'];
     ctsfull=zeros(ctsX*ctsY*ctsZ,ctsT, 'single');
@@ -267,14 +298,14 @@ if dovol > 0
     call_fsl(['fslcpgeom ' fmri '.nii.gz ' fname ' -d']); 
 end
 % For CIFTI, we can use the extension to distinguish between VN maps (.dscalar) and VN'ed time series (.dtseries)
-if hp>=0
+if hp>=0 && docifti
     BO.cdata=BO.cdata./repmat(OutBO.noise_unst_std,1,size(BO.cdata,2));
     ciftisave(BO,[fmri '_Atlas' regstring hpstring '_vn.dtseries.nii'],WBC); 
 end
 
 %Echo Dims
 %TSC: add the regstring to the output filename to avoid overwriting
-if hp>=0
+if hp>=0 && docifti > 0
     if dovol > 0
         dlmwrite([fmri regstring '_dims.txt'],[Outcts.calcDim OutBO.calcDim],'\t');
     else
@@ -285,7 +316,7 @@ else
     dlmwrite([fmri '_dims.txt'],[Outcts.calcDim],'\t');
 end
 
-dlmwrite([fmri '_wf.txt'],[ndhpvol ndhpcifti ndvol],'\t');
+dlmwrite([fmri '_wf.txt'],[ndhpvol ndhpcifti ndconcatvol],'\t');
 end
 
 
@@ -333,6 +364,6 @@ function Y = detrendpoly(X,p);
   % Rather than explicitly restricting the allowed order here, we'll code a restriction into the calling scripts.
   
   Y = X - V * (V \ X);  % Remove polynomial fit
-  
+
 end
-  
+
